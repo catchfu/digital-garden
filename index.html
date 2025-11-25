@@ -11,7 +11,7 @@
         import { getFirestore, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // --- CONFIGURATION ---
+        // --- CONFIGURATION (Preserved your keys) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBNyFkW_G7FpmjRgGtdAzcFvmF5gZLaDgM",
             authDomain: "digital-garden-f4ac9.firebaseapp.com",
@@ -27,7 +27,7 @@
         const appId = 'default-app-id';
         const postsCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
 
-        // AUTH: Only run if we have a token (Admin). Otherwise, read as Public.
+        // AUTH
         async function initAuth() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -37,22 +37,24 @@
             finally { loadGarden(); }
         }
 
+        // LOAD DATA
         async function loadGarden() {
             const featuredContainer = document.getElementById('featured-container');
             const pillarsContainer = document.getElementById('pillars-container');
             const streamContainer = document.getElementById('stream-container');
             
-            streamContainer.innerHTML = '<div class="mono" style="padding:2rem; text-align:center; opacity:0.5;">Loading garden...</div>';
+            streamContainer.innerHTML = '<div class="mono" style="padding:1rem; opacity:0.5;">Loading stream...</div>';
 
             try {
                 const q = query(postsCol, orderBy("date", "desc"), limit(50));
                 const snapshot = await getDocs(q);
                 
                 if (snapshot.empty) {
-                    streamContainer.innerHTML = '<div class="mono" style="padding:2rem; text-align:center;">Garden is empty. Seed some content in Admin.</div>';
+                    streamContainer.innerHTML = '<div class="mono" style="padding:1rem;">Garden is empty. Seed content in Admin.</div>';
                     return;
                 }
 
+                // Reset containers
                 featuredContainer.innerHTML = '';
                 pillarsContainer.innerHTML = '';
                 streamContainer.innerHTML = '';
@@ -64,23 +66,35 @@
                     const data = doc.data();
                     const id = doc.id;
 
+                    // 1. FEATURED: Goes into the Masthead now
                     if (data.isFeatured && !featuredFound) {
                         renderFeatured(data, id, featuredContainer);
                         featuredFound = true;
                         return; 
                     }
+                    // 2. PILLARS
                     if (data.isPillar && pillarCount < 4) {
                         renderPillar(data, id, pillarCount, pillarsContainer);
                         pillarCount++;
                         return; 
                     }
+                    // 3. STREAM
                     if (!data.isFeatured && !data.isPillar) {
                         renderStreamItem(data, id, streamContainer);
                     }
                 });
 
-                if (pillarCount === 0) pillarsContainer.innerHTML = '<div class="pillar-card"><div class="pillar-desc" style="opacity:0.4">No pillars defined. Check "Is Pillar" in Admin.</div></div>';
-                if (!featuredFound) featuredContainer.innerHTML = '<div class="mono" style="opacity:0.5; padding:2rem;">No featured essay selected.</div>';
+                if (pillarCount === 0) pillarsContainer.innerHTML = '<div class="pillar-card" style="border:none; padding:1rem;"><div class="pillar-desc" style="opacity:0.4">No pillars defined.</div></div>';
+                
+                // Fallback if no featured post found
+                if (!featuredFound) {
+                    featuredContainer.innerHTML = `
+                        <div class="featured-fallback">
+                            <div class="mono">NO FEATURED ESSAY</div>
+                            <p>Select "Feature on Homepage" in Admin to display an article here.</p>
+                        </div>
+                    `;
+                }
 
             } catch (err) {
                 console.error("Data load error:", err);
@@ -88,47 +102,46 @@
             }
         }
 
+        // RENDER: Featured (Compact Version)
         function renderFeatured(data, id, container) {
             const fileUrl = data.attachmentUrl || data.imageUrl;
             const fileType = data.attachmentType || "";
             const isImage = fileUrl && (fileType.startsWith('image/') || fileUrl.match(/\.(jpeg|jpg|gif|png)$/i));
 
-            let visualHTML = `
-                <div class="abstract-art">
-                    <div class="geo-shape geo-circle"></div>
-                    <div class="geo-shape geo-line"></div>
-                    <div class="geo-shape geo-rect"></div>
-                </div>
-            `;
-
+            // Smaller visual for the compact layout
+            let visualHtml = '';
             if (isImage) {
-                visualHTML = `<div class="abstract-art" style="border:none;"><img src="${fileUrl}" style="width:100%; height:100%; object-fit:cover; border:1px solid var(--ink);" alt="Featured"></div>`;
+                visualHtml = `<div class="feat-img"><img src="${fileUrl}" alt="Featured"></div>`;
+            } else {
+                // Mini abstract art
+                visualHtml = `
+                <div class="feat-abstract">
+                    <div class="geo-shape" style="width:40%; height:40%; border-radius:50%; top:10%; left:10%;"></div>
+                    <div class="geo-shape" style="width:80%; height:1px; background:var(--ink); top:50%; left:10%; transform:rotate(-15deg);"></div>
+                </div>`;
             }
 
             container.innerHTML = `
-                <div class="featured-grid">
-                    ${visualHTML}
-                    <div class="featured-content">
-                        <h2>${data.title}</h2>
-                        <p style="font-family: var(--font-serif); font-size: 1.2rem; opacity: 0.8; margin-bottom: 2rem;">
-                            ${data.intro || 'Click to read full essay.'}
-                        </p>
-                        <a href="article.html?id=${id}" class="cta-button">Read Essay -></a>
+                <a href="article.html?id=${id}" class="featured-card">
+                    <div class="mono" style="margin-bottom:0.5rem; color:var(--ink-dim);">★ LATEST THINKING</div>
+                    <div class="feat-layout">
+                        <div class="feat-text">
+                            <h3>${data.title}</h3>
+                            <p>${data.intro || 'Read the full entry...'}</p>
+                            <span class="link-arrow">READ ESSAY &rarr;</span>
+                        </div>
+                        ${visualHtml}
                     </div>
-                </div>
+                </a>
             `;
-            
-            if(!isImage && window.observer && document.querySelector('.abstract-art')) {
-                window.observer.observe(document.querySelector('.abstract-art'));
-            }
         }
 
         function renderPillar(data, id, index, container) {
             const num = String(index + 1).padStart(2, '0');
             container.insertAdjacentHTML('beforeend', `
                 <a href="article.html?id=${id}" class="pillar-card">
-                    <div><span class="pillar-num">${num}</span><div class="pillar-title">${data.title}</div></div>
-                    <div class="pillar-desc">${data.intro || 'View this collection.'}</div>
+                    <div class="pillar-header"><span class="pillar-num">${num}</span><span class="pillar-title">${data.title}</span></div>
+                    <div class="pillar-desc">${data.intro || 'Collection'}</div>
                 </a>
             `);
         }
@@ -137,9 +150,9 @@
             const dateStr = new Date(data.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
             container.insertAdjacentHTML('beforeend', `
                 <article class="stream-item" onclick="window.location.href='article.html?id=${id}'">
-                    <span class="mono">${dateStr}</span>
+                    <span class="mono date">${dateStr}</span>
                     <h3 class="stream-title">${data.title}</h3>
-                    <span class="mono stream-tag">${data.tag || '#NOTE'}</span>
+                    <span class="mono tag">${data.tag || '#NOTE'}</span>
                 </article>
             `);
         }
@@ -148,99 +161,269 @@
     </script>
 
     <style>
-        :root { --paper: #F4F4F0; --ink: #1A1A1A; --font-serif: 'Playfair Display', serif; --font-sans: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace; --spacing-md: 2rem; --spacing-lg: 4rem; --spacing-xl: 8rem; --border-width: 1px; }
-        body { background-color: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.6; margin: 0; padding: 0; }
+        /* COMPACT SWISS DESIGN SYSTEM */
+        :root { 
+            --paper: #F4F4F0; 
+            --ink: #1A1A1A; 
+            --ink-dim: #555; 
+            --font-serif: 'Playfair Display', serif; 
+            --font-sans: 'Inter', sans-serif; 
+            --font-mono: 'JetBrains Mono', monospace; 
+            
+            /* Tighter Spacing */
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1.5rem;
+            --spacing-lg: 3rem; /* Reduced from 4rem */
+            --spacing-xl: 4rem; /* Reduced from 8rem */
+            
+            --border: 1px solid var(--ink);
+        }
+
+        /* Reset & Base */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; overflow-x: hidden; }
         a { color: inherit; text-decoration: none; }
+        
+        /* Noise */
+        .noise-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.35; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; }
+
+        /* Layout Utilities */
         .container { max-width: 1400px; margin: 0 auto; padding: 0 var(--spacing-md); }
-        .section-padding { padding: var(--spacing-xl) 0; }
-        .border-top { border-top: 1px solid var(--ink); } .border-bottom { border-bottom: 1px solid var(--ink); }
+        .mono { font-family: var(--font-mono); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; }
+        .border-top { border-top: var(--border); }
+        .border-bottom { border-bottom: var(--border); }
+
+        /* COMPACT NAV */
+        nav { display: flex; justify-content: space-between; align-items: center; height: 60px; font-family: var(--font-mono); font-size: 0.8rem; border-bottom: var(--border); }
+
+        /* MASTHEAD (Merged Hero + Featured) */
+        .masthead {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr; /* Left side slightly wider for title */
+            min-height: 45vh; /* Drastically reduced from 70vh */
+        }
+
+        /* Left: Title Area */
+        .title-area {
+            padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-lg) 0;
+            border-right: var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
         
-        .noise-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.4; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; }
+        .main-title {
+            font-family: var(--font-serif);
+            font-size: clamp(2rem, 5vw, 4.5rem); /* Reduced size for single line */
+            line-height: 1;
+            letter-spacing: -0.02em;
+            margin-bottom: 1rem;
+            white-space: nowrap; /* Ensures it stays on one line if space allows */
+        }
         
-        nav { display: flex; justify-content: space-between; padding: var(--spacing-md) 0; font-family: var(--font-mono); font-size: 0.85rem; }
-        .hero { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .display-text { font-size: clamp(3.5rem, 10vw, 8rem); line-height: 0.9; font-family: var(--font-serif); }
-        .hero-subtitle { margin-top: var(--spacing-md); font-family: var(--font-mono); letter-spacing: 0.1em; font-size: 0.9rem; }
+        .subtitle {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--ink-dim);
+            max-width: 300px;
+            line-height: 1.4;
+        }
+
+        /* Right: Featured Area */
+        .featured-area {
+            padding: var(--spacing-lg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* Featured Card Styling */
+        .featured-card {
+            display: block;
+            height: 100%;
+            transition: transform 0.3s ease;
+        }
+        .featured-card:hover { transform: translateY(-2px); }
+
+        .feat-layout {
+            display: flex;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .feat-text h3 {
+            font-family: var(--font-serif);
+            font-size: 1.75rem;
+            line-height: 1.1;
+            margin-bottom: 0.75rem;
+        }
+        .feat-text p {
+            font-size: 1rem;
+            color: var(--ink-dim);
+            margin-bottom: 1rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
         
-        .featured-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); align-items: center; }
-        .abstract-art { aspect-ratio: 1/1; border: 1px solid var(--ink); position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        .geo-shape { position: absolute; border: 1px solid var(--ink); transition: 0.5s; }
-        .geo-circle { width: 60%; height: 60%; border-radius: 50%; }
-        .geo-line { width: 120%; height: 1px; background: var(--ink); transform: rotate(45deg); }
-        .geo-rect { width: 40%; height: 40%; top: 20%; left: 20%; }
-        .featured-content h2 { font-family: var(--font-serif); font-size: clamp(2rem, 5vw, 4rem); margin-bottom: var(--spacing-md); line-height: 1.1; }
+        /* Compact Visuals */
+        .feat-img, .feat-abstract {
+            width: 120px;
+            height: 120px;
+            flex-shrink: 0;
+            border: var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        .feat-img img { width: 100%; height: 100%; object-fit: cover; }
+        .geo-shape { position: absolute; border: 1px solid var(--ink); }
+
+        .link-arrow { font-family: var(--font-mono); font-size: 0.75rem; border-bottom: 1px solid transparent; transition: border 0.2s; }
+        .featured-card:hover .link-arrow { border-bottom: 1px solid var(--ink); }
+
+        /* STREAM SECTION (List) */
+        .stream-section { padding-top: var(--spacing-lg); }
+        .stream-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
         
-        .cta-button { border: 1px solid var(--ink); padding: 1rem 2rem; font-family: var(--font-mono); text-transform: uppercase; font-size: 0.8rem; display: inline-block; transition: 0.3s; }
-        .cta-button:hover { background: var(--ink); color: var(--paper); }
-        
-        .stream-item { display: grid; grid-template-columns: 1fr 3fr 1fr; padding: var(--spacing-md) 0; border-bottom: 1px solid var(--ink); cursor: pointer; align-items: baseline; }
+        .stream-item {
+            display: grid;
+            grid-template-columns: 100px 1fr auto;
+            align-items: baseline;
+            padding: 1rem 0;
+            border-top: var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
         .stream-item:hover { background: rgba(0,0,0,0.03); }
-        .stream-title { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 500; }
-        .mono { font-family: var(--font-mono); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
         
-        .pillars-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--ink); border-left: 1px solid var(--ink); }
-        .pillar-card { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: var(--spacing-lg); min-height: 300px; display: flex; flex-direction: column; justify-content: space-between; transition: 0.4s; }
+        .stream-title { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 400; }
+        .date { color: var(--ink-dim); }
+        .tag { opacity: 0.5; }
+
+        /* PILLARS (Small Grid) */
+        .pillars-section { padding: var(--spacing-lg) 0; }
+        .pillars-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 columns instead of 2 for efficiency */
+            border-left: var(--border);
+            border-top: var(--border);
+        }
+        
+        .pillar-card {
+            padding: 1.5rem;
+            border-right: var(--border);
+            border-bottom: var(--border);
+            min-height: 180px; /* Shorter cards */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: background 0.3s;
+        }
         .pillar-card:hover { background: var(--ink); color: var(--paper); }
-        .pillar-num { font-family: var(--font-serif); font-size: 3rem; }
-        .pillar-title { font-family: var(--font-mono); font-size: 1rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5rem; }
-        .pillar-desc { font-size: 0.9rem; opacity: 0.8; }
-
-        .resources-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg); }
-        .resource-col h3 { font-family: var(--font-mono); font-size: 0.8rem; opacity: 0.5; margin-bottom: var(--spacing-md); }
-        .resource-list { list-style: none; }
-        .resource-list li { margin-bottom: 0.5rem; font-family: var(--font-mono); font-size: 0.85rem; border-bottom: 1px solid transparent; padding-bottom: 2px; }
-        .resource-list li:hover { border-bottom: 1px solid var(--ink); }
         
-        .footer-input-wrapper { position: relative; margin-top: var(--spacing-md); }
-        .email-input { width: 100%; background: transparent; border: none; border-bottom: 2px solid var(--ink); font-family: var(--font-serif); font-size: clamp(1.5rem, 4vw, 3rem); padding: 1rem 0; outline: none; }
-        .submit-arrow { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 2rem; cursor: pointer; }
-        .footer-meta { display: flex; justify-content: space-between; margin-top: var(--spacing-xl); font-family: var(--font-mono); font-size: 0.75rem; opacity: 0.6; }
+        .pillar-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .pillar-num { font-family: var(--font-serif); font-size: 1.5rem; }
+        .pillar-title { font-family: var(--font-mono); font-weight: bold; letter-spacing: 0.1em; }
+        .pillar-desc { font-size: 0.85rem; opacity: 0.7; line-height: 1.3; }
 
-        @media (max-width: 768px) {
-            .featured-grid, .pillars-grid { grid-template-columns: 1fr; }
-            .stream-item { grid-template-columns: auto 1fr; gap: 1rem; }
-            .stream-item .mono:last-child { display: none; }
-            .pillar-card { border-right: none; }
+        /* RESOURCES / FOOTER */
+        .resources-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2rem; padding: var(--spacing-lg) 0; }
+        .resource-col h3 { font-family: var(--font-mono); font-size: 0.75rem; opacity: 0.5; margin-bottom: 1rem; }
+        .resource-list { list-style: none; }
+        .resource-list li { margin-bottom: 0.5rem; font-size: 0.9rem; font-family: var(--font-mono); }
+        
+        footer { padding: var(--spacing-lg) 0; border-top: var(--border); text-align: center; }
+        .footer-input-wrapper { position: relative; margin: 2rem auto; max-width: 600px; }
+        .email-input { width: 100%; background: transparent; border: none; border-bottom: 2px solid var(--ink); font-family: var(--font-serif); font-size: 2rem; padding: 0.5rem 0; outline: none; text-align: center; }
+        .footer-meta { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.7rem; opacity: 0.6; }
+
+        /* RESPONSIVE */
+        @media (max-width: 900px) {
+            .masthead { grid-template-columns: 1fr; min-height: auto; }
+            .title-area { border-right: none; border-bottom: var(--border); padding-bottom: 2rem; }
+            .featured-area { padding: 2rem 0; }
+            .pillars-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 600px) {
+            .stream-item { grid-template-columns: 1fr; gap: 0.5rem; }
+            .stream-item .date { font-size: 0.7rem; margin-bottom: 0.25rem; }
+            .stream-item .tag { display: none; }
+            .pillars-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
     <div class="noise-overlay"></div>
+
     <div class="container">
-        <nav><div class="logo">DG — 2025</div><div class="links"><a href="about.html" style="margin-right: 20px;">[ABOUT]</a><a href="#index">[INDEX]</a></div></nav>
-        <header class="hero"><h1 class="display-text">DIGITAL<br>GARDEN</h1><div class="hero-subtitle">Curated Thoughts & Archived Knowledge</div></header>
-        
-        <section class="section-padding border-top">
-            <div class="mono" style="margin-bottom: var(--spacing-md);">01 — FEATURED ESSAY</div>
-            <div id="featured-container"></div>
-        </section>
+        <!-- NAV -->
+        <nav>
+            <div class="logo">DG — 2025</div>
+            <div class="links">
+                <a href="about.html" style="margin-right: 1.5rem;">[ABOUT]</a>
+                <a href="#index">[INDEX]</a>
+            </div>
+        </nav>
 
-        <section class="section-padding" id="index">
-            <div class="mono" style="margin-bottom: var(--spacing-md);">02 — THE STREAM</div>
-            <div class="border-top" id="stream-container"></div>
-            <div style="text-align: center; margin-top: var(--spacing-md);"><a href="#" class="cta-button">View All Entries</a></div>
-        </section>
+        <!-- MASTHEAD (MERGED HERO + FEATURED) -->
+        <header class="masthead">
+            <!-- Left: Identity -->
+            <div class="title-area">
+                <div class="main-title">DIGITAL GARDEN</div>
+                <div class="subtitle">
+                    A curated archive of thoughts on design, code, and the slow web.
+                    <br><br>
+                    <span class="mono">EST. 2025 — TOKYO / SF</span>
+                </div>
+            </div>
 
-        <section class="section-padding">
-            <div class="mono" style="margin-bottom: var(--spacing-md);">03 — PILLARS</div>
-            <div class="pillars-grid" id="pillars-container"></div>
-        </section>
+            <!-- Right: Dynamic Featured Section -->
+            <div class="featured-area" id="featured-container">
+                <!-- JS Injects content here -->
+                <div class="mono">Loading featured...</div>
+            </div>
+        </header>
 
-        <section class="section-padding border-bottom">
-            <div class="mono" style="margin-bottom: var(--spacing-md);">04 — THE STASH</div>
-            <div class="resources-grid">
-                <div class="resource-col"><h3>Reading</h3><ul class="resource-list"><li><a href="#">The Design of Everyday Things <span>↗</span></a></li><li><a href="#">Grid Systems <span>↗</span></a></li></ul></div>
-                <div class="resource-col"><h3>Tools</h3><ul class="resource-list"><li><a href="#">Figma <span>↗</span></a></li><li><a href="#">VS Code <span>↗</span></a></li></ul></div>
-                <div class="resource-col"><h3>Inspiration</h3><ul class="resource-list"><li><a href="#">Awwwards <span>↗</span></a></li><li><a href="#">Siteinspire <span>↗</span></a></li></ul></div>
+        <!-- STREAM (LIST) -->
+        <section class="stream-section" id="index">
+            <div class="stream-header">
+                <div class="mono">01 — THE STREAM</div>
+                <a href="#" class="mono" style="text-decoration:underline;">VIEW ARCHIVE</a>
+            </div>
+            <div id="stream-container">
+                <!-- JS Injects list items here -->
             </div>
         </section>
 
-        <footer class="section-padding">
+        <!-- PILLARS (GRID) -->
+        <section class="pillars-section">
+            <div class="mono" style="margin-bottom: 1rem;">02 — PILLARS</div>
+            <div class="pillars-grid" id="pillars-container">
+                <!-- JS Injects pillars here -->
+            </div>
+        </section>
+
+        <!-- FOOTER / RESOURCES -->
+        <section class="section-padding border-top">
+            <div class="mono">03 — THE STASH</div>
+            <div class="resources-grid">
+                <div class="resource-col"><h3>READING</h3><ul class="resource-list"><li><a href="#">The Timeless Way of Building</a></li><li><a href="#">Grid Systems (Müller-Brockmann)</a></li></ul></div>
+                <div class="resource-col"><h3>STACK</h3><ul class="resource-list"><li><a href="#">Firebase / Firestore</a></li><li><a href="#">Vanilla JS (ES6)</a></li></ul></div>
+                <div class="resource-col"><h3>FRIENDS</h3><ul class="resource-list"><li><a href="#">Siteinspire</a></li><li><a href="#">Awwwards</a></li></ul></div>
+            </div>
+        </section>
+
+        <footer>
             <div class="mono">CORRESPONDENCE</div>
-            <div class="footer-input-wrapper"><input type="email" class="email-input" placeholder="Enter your email..."><div class="submit-arrow">→</div></div>
-            <div class="footer-meta"><div>© 2025 DIGITAL GARDEN</div><div>BUILT WITH AESTHETIC INTELLIGENCE</div></div>
+            <div class="footer-input-wrapper">
+                <input type="email" class="email-input" placeholder="Email...">
+            </div>
+            <div class="footer-meta">
+                <div>© 2025 DIGITAL GARDEN</div>
+                <div>AESTHETIC INTELLIGENCE</div>
+            </div>
         </footer>
     </div>
-    <!-- PASTE MODAL SNIPPET HERE IF NEEDED -->
 </body>
 </html>
