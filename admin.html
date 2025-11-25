@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gardener's Desk | Admin</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNyFkW_G7FpmjRgGtdAzcFvmF5gZLaDgM",
+            authDomain: "digital-garden-f4ac9.firebaseapp.com",
+            projectId: "digital-garden-f4ac9",
+            storageBucket: "digital-garden-f4ac9.firebasestorage.app",
+            messagingSenderId: "423501957168",
+            appId: "1:423501957168:web:d27abd7992a8a5d93085f5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        const appId = 'default-app-id';
+        const postsCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+
+        // --- STATE ---
+        let isEditingId = null;
+        let currentAttachment = { url: "", type: "", name: "" };
+
+        // --- DOM ELEMENTS ---
+        const loginView = document.getElementById('loginView');
+        const dashView = document.getElementById('dashView');
+        const postForm = document.getElementById('postForm');
+        const postsList = document.getElementById('postsList');
+        const feedback = document.getElementById('feedback');
+
+        // --- AUTHENTICATION ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginView.style.display = 'none';
+                dashView.style.display = 'block';
+                loadPosts();
+            } else {
+                loginView.style.display = 'flex';
+                dashView.style.display = 'none';
+            }
+        });
+
+        window.handleLogin = async (e) => {
+            e.preventDefault();
+            const email = e.target.email.value;
+            const password = e.target.password.value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                alert("Access Denied: " + error.message);
+            }
+        };
+
+        window.handleLogout = () => signOut(auth);
+
+        // --- DATA OPERATIONS ---
+        async function loadPosts() {
+            postsList.innerHTML = '<div class="mono">Loading archive...</div>';
+            const q = query(postsCol, orderBy("date", "desc"));
+            const snapshot = await getDocs(q);
+            
+            postsList.innerHTML = '';
+            snapshot.forEach(doc => {
+                const post = doc.data();
+                
+                let badges = "";
+                if (post.isFeatured) badges += " <span style='color:orange'>[★]</span>";
+                if (post.isPillar) badges += " <span style='color:cyan'>[P]</span>";
+                if (post.attachmentUrl) badges += " <span style='color:lightgreen'>[FILE]</span>"; 
+
+                const div = document.createElement('div');
+                div.className = 'post-item';
+                div.innerHTML = `
+                    <div>
+                        <div class="post-title">${post.title} ${badges}</div>
+                        <div class="mono" style="opacity:0.5; font-size:0.7rem;">${new Date(post.date).toLocaleDateString()} • ${post.tag || 'No Tag'}</div>
+                    </div>
+                    <div class="actions">
+                        <button onclick="editPost('${doc.id}')" class="btn-sm">Edit</button>
+                        <button onclick="deletePost('${doc.id}')" class="btn-sm delete">Delete</button>
+                    </div>
+                `;
+                postsList.appendChild(div);
+            });
+        }
+
+        // --- FILE PROCESSING (Limit 500KB) ---
+        function processFile(file) {
+            return new Promise((resolve, reject) => {
+                if (file.size > 500 * 1024) {
+                    reject("File too large (>500KB). Please use Option B (External Link).");
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        window.savePost = async (e) => {
+            e.preventDefault();
+            showFeedback("Processing...");
+            
+            const form = e.target;
+            let attachmentData = { ...currentAttachment };
+            
+            const fileInput = document.getElementById('fileInput');
+            const urlInput = document.getElementById('urlInput');
+
+            // A: New File Upload
+            if (fileInput.files.length > 0) {
+                try {
+                    const file = fileInput.files[0];
+                    const base64String = await processFile(file);
+                    attachmentData.url = base64String;
+                    attachmentData.type = file.type;
+                    attachmentData.name = file.name;
+                } catch (err) {
+                    alert(err);
+                    showFeedback("Error.");
+                    return;
+                }
+            } 
+            // B: Manual URL
+            else if (urlInput.value.trim() !== "") {
+                attachmentData.url = urlInput.value.trim();
+                attachmentData.name = "External Link";
+                if (attachmentData.url.match(/\.(jpeg|jpg|gif|png)$/i)) attachmentData.type = "image/jpeg";
+                else attachmentData.type = "link";
+            }
+
+            const data = {
+                title: form.title.value,
+                tag: form.tag.value.toUpperCase(),
+                intro: form.intro.value,
+                content: form.content.value,
+                date: new Date().toISOString(),
+                readTime: form.readTime.value || "3 MIN READ",
+                isFeatured: form.isFeatured.checked,
+                isPillar: form.isPillar.checked,
+                attachmentUrl: attachmentData.url,
+                attachmentType: attachmentData.type,
+                attachmentName: attachmentData.name
+            };
+
+            try {
+                if (isEditingId) {
+                    await updateDoc(doc(postsCol, isEditingId), data);
+                    showFeedback("Entry updated.");
+                } else {
+                    await addDoc(postsCol, data);
+                    showFeedback("New entry seeded.");
+                }
+                resetForm();
+                loadPosts();
+            } catch (error) {
+                if (error.message.includes("size")) {
+                    alert("Error: Document too large. Use an external link for this attachment.");
+                } else {
+                    alert("Error: " + error.message);
+                }
+            }
+        };
+
+        window.editPost = async (id) => {
+            isEditingId = id;
+            const docSnap = await getDoc(doc(postsCol, id));
+            const data = docSnap.data();
+            
+            document.getElementById('formTitle').innerText = "EDIT ENTRY";
+            postForm.title.value = data.title;
+            postForm.tag.value = data.tag;
+            postForm.intro.value = data.intro;
+            postForm.content.value = data.content;
+            postForm.readTime.value = data.readTime;
+            postForm.isFeatured.checked = !!data.isFeatured;
+            postForm.isPillar.checked = !!data.isPillar;
+            
+            currentAttachment = {
+                url: data.attachmentUrl || data.imageUrl || "",
+                type: data.attachmentType || "",
+                name: data.attachmentName || "Existing Attachment"
+            };
+
+            const statusDiv = document.getElementById('fileStatus');
+            const urlInput = document.getElementById('urlInput');
+
+            if (currentAttachment.url) {
+                if (currentAttachment.url.startsWith("data:")) {
+                    statusDiv.innerText = `Attached: ${currentAttachment.name} (Stored in DB)`;
+                    statusDiv.style.color = "lightgreen";
+                    urlInput.value = ""; 
+                } else {
+                    statusDiv.innerText = "External Link Active";
+                    statusDiv.style.color = "cyan";
+                    urlInput.value = currentAttachment.url;
+                }
+            } else {
+                statusDiv.innerText = "No file attached.";
+                statusDiv.style.color = "inherit";
+                urlInput.value = "";
+            }
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.deletePost = async (id) => {
+            if(confirm("Prune this entry permanently?")) {
+                await deleteDoc(doc(postsCol, id));
+                loadPosts();
+            }
+        };
+
+        window.resetForm = () => {
+            isEditingId = null;
+            currentAttachment = { url: "", type: "", name: "" };
+            postForm.reset();
+            document.getElementById('fileInput').value = ""; 
+            document.getElementById('urlInput').value = "";
+            document.getElementById('fileStatus').innerText = "";
+            document.getElementById('formTitle').innerText = "NEW ENTRY";
+        };
+
+        function showFeedback(msg) {
+            feedback.innerText = msg;
+            feedback.style.opacity = 1;
+            setTimeout(() => feedback.style.opacity = 0, 3000);
+        }
+
+        window.editPost = editPost;
+        window.deletePost = deletePost;
+    </script>
+
+    <style>
+        :root { --paper: #F4F4F0; --ink: #1A1A1A; --font-serif: 'Playfair Display', serif; --font-sans: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace; }
+        body { background: var(--paper); color: var(--ink); font-family: var(--font-sans); margin: 0; }
+        
+        .split-screen { display: grid; grid-template-columns: 350px 1fr; min-height: 100vh; }
+        .sidebar { border-right: 1px solid var(--ink); padding: 2rem; display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; overflow-y: auto; }
+        .editor-area { padding: 4rem; max-width: 800px; margin: 0 auto; width: 100%; }
+
+        input, textarea { width: 100%; background: transparent; border: 1px solid var(--ink); padding: 1rem; font-family: inherit; margin-bottom: 1.5rem; font-size: 1rem; }
+        textarea { min-height: 400px; line-height: 1.6; font-family: var(--font-mono); font-size: 0.9rem; }
+        label { display: block; font-family: var(--font-mono); font-size: 0.75rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em; }
+        button { background: var(--ink); color: var(--paper); border: none; padding: 1rem 2rem; font-family: var(--font-mono); text-transform: uppercase; cursor: pointer; }
+        
+        .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+        .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.7rem; margin-left: 0.5rem; }
+        .delete { border-color: #ff4444; color: #ff4444; background: transparent; border: 1px solid; }
+
+        .checkbox-group { display: flex; gap: 2rem; margin-bottom: 2rem; padding: 1rem; border: 1px dashed var(--ink); }
+        .checkbox-wrapper { display: flex; align-items: center; gap: 0.5rem; }
+        
+        .file-upload-wrapper { margin-bottom: 1.5rem; border: 1px solid var(--ink); padding: 1rem; background: rgba(26,26,26,0.03); }
+        input[type="file"] { border: none; padding: 0; margin: 0; margin-bottom: 0.5rem; }
+        .separator { text-align: center; font-family: var(--font-mono); font-size: 0.8rem; margin: 1rem 0; opacity: 0.5; }
+
+        #loginView { position: fixed; inset: 0; background: var(--paper); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .login-card { width: 100%; max-width: 400px; text-align: center; }
+        .post-item { padding: 1rem 0; border-bottom: 1px solid rgba(26,26,26,0.2); display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+    <div id="loginView">
+        <div class="login-card">
+            <h1 style="font-family: var(--font-serif); margin-bottom: 2rem;">The Gatekeeper</h1>
+            <form onsubmit="handleLogin(event)">
+                <input type="email" name="email" placeholder="Gardener Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Unlock</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashView" style="display:none;">
+        <div class="split-screen">
+            <aside class="sidebar">
+                <div class="mono" style="margin-bottom: 2rem;">ARCHIVE <button onclick="handleLogout()" class="btn-sm btn-outline" style="float:right">EXIT</button></div>
+                <div id="postsList"></div>
+            </aside>
+            
+            <main class="editor-area">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+                    <h2 class="mono" id="formTitle">NEW ENTRY</h2>
+                    <button onclick="resetForm()" class="btn-sm btn-outline">CLEAR</button>
+                </div>
+                
+                <form id="postForm" onsubmit="savePost(event)">
+                    <label>Headline</label>
+                    <input type="text" name="title" required placeholder="The Architecture of Thought">
+                    
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label>Tag</label>
+                            <input type="text" name="tag" required placeholder="#DESIGN">
+                        </div>
+                        <div>
+                            <label>Read Time</label>
+                            <input type="text" name="readTime" placeholder="4 MIN READ">
+                        </div>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="isFeatured" name="isFeatured">
+                            <label for="isFeatured">★ Feature on Homepage</label>
+                        </div>
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="isPillar" name="isPillar">
+                            <label for="isPillar">Is Pillar? (Shows in Grid)</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Smart Attachment System -->
+                    <div class="file-upload-wrapper">
+                        <label>Option A: Direct Upload (Max 500KB)</label>
+                        <input type="file" id="fileInput">
+                        <div class="separator">— OR —</div>
+                        <label>Option B: External URL (Unlimited Size)</label>
+                        <input type="text" id="urlInput" placeholder="https://drive.google.com/file/..." style="margin-bottom:0;">
+                        <div id="fileStatus" class="mono" style="margin-top:1rem; font-size:0.7rem;"></div>
+                    </div>
+
+                    <label>Introduction (Excerpt / Pillar Description)</label>
+                    <input type="text" name="intro" placeholder="A brief summary...">
+
+                    <label>Content (HTML Supported)</label>
+                    <textarea name="content" placeholder="<p>Write your thoughts here...</p>" required></textarea>
+                    
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <button type="submit">PLANT SEED</button>
+                        <span id="feedback" class="mono" style="opacity:0; transition:opacity 0.3s;">Saved.</span>
+                    </div>
+                </form>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading... | Digital Garden</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&display=swap" rel="stylesheet">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNyFkW_G7FpmjRgGtdAzcFvmF5gZLaDgM",
+            authDomain: "digital-garden-f4ac9.firebaseapp.com",
+            projectId: "digital-garden-f4ac9",
+            storageBucket: "digital-garden-f4ac9.firebasestorage.app",
+            messagingSenderId: "423501957168",
+            appId: "1:423501957168:web:d27abd7992a8a5d93085f5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const appId = 'default-app-id';
+        const postsCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+
+        async function loadArticle() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id');
+
+            if (!id) return;
+
+            try {
+                const docSnap = await getDoc(doc(postsCol, id));
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    document.title = data.title + " | Digital Garden";
+                    document.getElementById('art-date').innerText = new Date(data.date).toLocaleDateString().toUpperCase();
+                    document.getElementById('art-tag').innerText = data.tag || '#NOTE';
+                    document.getElementById('art-time').innerText = data.readTime || '3 MIN READ';
+                    
+                    const fileUrl = data.attachmentUrl || data.imageUrl;
+                    const fileType = data.attachmentType || ""; 
+                    const fileName = data.attachmentName || "Attached File";
+                    const attachContainer = document.getElementById('art-attachment-container');
+                    attachContainer.innerHTML = "";
+
+                    if (fileUrl) {
+                        // 1. IF IMAGE -> Show it visually
+                        if (fileType.startsWith('image/') || fileUrl.match(/\.(jpeg|jpg|gif|png)$/i)) {
+                             attachContainer.innerHTML = `<img src="${fileUrl}" alt="${data.title}" style="width:100%; height:auto; border:1px solid var(--ink); margin-bottom:2rem; display:block;">`;
+                        } 
+                        // 2. IF FILE (PDF/Zip/Text)
+                        else {
+                            let btnHtml = '';
+                            
+                            // FIX: Check if it is a Data URL (Stored in DB) vs External Link
+                            if (fileUrl.startsWith('data:')) {
+                                // Data URL: Must use 'download' attribute to prevent browser security error
+                                btnHtml = `<a href="${fileUrl}" download="${fileName}" class="file-btn">DOWNLOAD FILE ↓</a>`;
+                            } else {
+                                // External Link: Open in new tab
+                                btnHtml = `<a href="${fileUrl}" target="_blank" class="file-btn">OPEN LINK ↗</a>`;
+                            }
+
+                            attachContainer.innerHTML = `
+                                <div class="file-card">
+                                    <div class="mono" style="margin-bottom:0.5rem; opacity:0.6;">FILE ATTACHMENT</div>
+                                    <div style="font-family:var(--font-serif); font-size:1.2rem; margin-bottom:1rem;">${fileName}</div>
+                                    ${btnHtml}
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    document.getElementById('art-title').innerText = data.title;
+                    document.getElementById('art-intro').innerText = data.intro || '';
+                    document.getElementById('art-content').innerHTML = data.content;
+                } else {
+                    window.location.href = '404.html';
+                }
+            } catch (e) { console.error("Error loading article:", e); }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadArticle);
+    </script>
+
+    <style>
+        :root { --paper: #F4F4F0; --ink: #1A1A1A; --font-serif: 'Playfair Display', serif; --font-sans: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace; --spacing-md: 2rem; --spacing-lg: 4rem; }
+        body { background-color: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.6; margin: 0; }
+        .noise-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.4; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 var(--spacing-md); }
+        nav { display: flex; justify-content: space-between; padding: var(--spacing-md) 0; font-family: var(--font-mono); font-size: 0.85rem; border-bottom: 1px solid var(--ink); }
+        a { color: inherit; text-decoration: none; }
+        
+        .article-header { padding: 4rem 0 2rem 0; text-align: center; max-width: 900px; margin: 0 auto; }
+        .article-meta { display: flex; justify-content: center; gap: var(--spacing-md); margin-bottom: var(--spacing-md); opacity: 0.7; }
+        h1.article-title { font-family: var(--font-serif); font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1.1; margin-bottom: var(--spacing-md); }
+        .article-intro { font-size: 1.25rem; opacity: 0.8; font-style: italic; font-family: var(--font-serif); max-width: 700px; margin: 0 auto; }
+        
+        .content-wrapper { max-width: 720px; margin: 0 auto; padding-bottom: 8rem; }
+        .prose p { margin-bottom: 1.5rem; font-size: 1.1rem; line-height: 1.7; }
+        .prose h2 { font-family: var(--font-serif); font-size: 2rem; margin-top: 3rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--ink); }
+        .prose blockquote { border-left: 4px solid var(--ink); padding-left: 2rem; margin: 2.5rem 0; font-family: var(--font-serif); font-size: 1.5rem; font-style: italic; }
+        
+        .file-card { border: 1px solid var(--ink); padding: 2rem; margin-bottom: 2rem; background: rgba(26,26,26, 0.02); text-align: center; }
+        .file-btn { display: inline-block; padding: 0.5rem 1rem; border: 1px solid var(--ink); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; transition: 0.3s; }
+        .file-btn:hover { background: var(--ink); color: var(--paper); }
+        
+        footer { padding: 2rem 0; text-align: center; border-top: 1px solid var(--ink); font-family: var(--font-mono); font-size: 0.8rem; opacity: 0.6; }
+        .progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 4px; }
+        .progress-bar { height: 100%; background: var(--ink); width: 0%; }
+    </style>
+</head>
+<body>
+    <div class="noise-overlay"></div>
+    <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+
+    <div class="container">
+        <nav><div class="logo"><a href="index.html">DG — 2025</a></div><div class="links"><a href="index.html">← BACK TO INDEX</a></div></nav>
+
+        <article>
+            <header class="article-header">
+                 <div class="article-meta mono"><span id="art-date"></span><span>•</span><span id="art-tag"></span><span>•</span><span id="art-time"></span></div>
+                <h1 class="article-title" id="art-title">Loading...</h1>
+                <p class="article-intro" id="art-intro"></p>
+            </header>
+            
+            <div class="content-wrapper">
+                <div id="art-attachment-container"></div>
+                <div class="prose" id="art-content"></div>
+            </div>
+        </article>
+
+        <footer>© 2025 DIGITAL GARDEN</footer>
+    </div>
+
+    <script>
+        window.onscroll = function() {
+            let winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            let height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            let scrolled = (winScroll / height) * 100;
+            document.getElementById("progressBar").style.width = scrolled + "%";
+        };
+    </script>
+</body>
+</html>

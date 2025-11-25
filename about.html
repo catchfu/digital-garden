@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About The Gardener | Digital Garden</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- SHARED DESIGN SYSTEM --- */
+        :root {
+            --paper: #F4F4F0;
+            --ink: #1A1A1A;
+            --font-serif: 'Playfair Display', serif;
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --spacing-md: 2rem;
+            --spacing-lg: 4rem;
+            --border-width: 1px;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--paper);
+            color: var(--ink);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- NOISE TEXTURE --- */
+        .noise-overlay {
+            position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.4;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            mix-blend-mode: overlay;
+        }
+
+        /* --- UTILITIES --- */
+        a { color: inherit; text-decoration: none; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 var(--spacing-md); }
+        .mono { font-family: var(--font-mono); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        
+        /* --- NAVIGATION --- */
+        nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: var(--spacing-md) 0; font-family: var(--font-mono); font-size: 0.85rem;
+            border-bottom: var(--border-width) solid var(--ink);
+        }
+
+        /* --- ABOUT LAYOUT --- */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr; /* Split layout */
+            gap: var(--spacing-lg);
+            padding-top: var(--spacing-lg);
+            padding-bottom: var(--spacing-lg);
+            min-height: 80vh;
+        }
+
+        /* --- LEFT COLUMN (Visual/Meta) --- */
+        .profile-frame {
+            position: sticky;
+            top: var(--spacing-md);
+        }
+
+        .profile-image-placeholder {
+            width: 100%;
+            aspect-ratio: 4/5;
+            background-color: #E5E5E0;
+            border: var(--border-width) solid var(--ink);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: var(--spacing-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-image-placeholder::after {
+            content: "PROFILE IMAGE";
+            font-family: var(--font-mono);
+            opacity: 0.3;
+        }
+
+        /* --- RIGHT COLUMN (Narrative) --- */
+        .bio-headline {
+            font-family: var(--font-serif);
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            line-height: 1.1;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .bio-text p {
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+            max-width: 60ch;
+        }
+
+        /* --- TIMELINE COMPONENT --- */
+        .timeline-section {
+            margin-top: var(--spacing-lg);
+            border-top: var(--border-width) solid var(--ink);
+            padding-top: var(--spacing-md);
+        }
+
+        .timeline-item {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            margin-bottom: 1.5rem;
+            align-items: baseline;
+        }
+
+        .time-year { font-family: var(--font-mono); opacity: 0.6; }
+        .time-role { font-weight: 500; font-family: var(--font-serif); font-size: 1.1rem; }
+        .time-company { font-size: 0.9rem; opacity: 0.8; display: block; }
+
+        /* --- "NOW" SECTION --- */
+        .now-section {
+            background: var(--ink);
+            color: var(--paper);
+            padding: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .now-list li {
+            list-style: none;
+            border-bottom: 1px solid rgba(244, 244, 240, 0.2);
+            padding: 1rem 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            padding: var(--spacing-md) 0; text-align: center;
+            border-top: var(--border-width) solid var(--ink);
+            font-family: var(--font-mono); font-size: 0.8rem; opacity: 0.6;
+        }
+
+        @media (max-width: 900px) {
+            .about-grid { grid-template-columns: 1fr; }
+            .profile-frame { position: static; }
+            .profile-image-placeholder { aspect-ratio: 16/9; }
+        }
+    </style>
+</head>
+<body>
+    <div class="noise-overlay"></div>
+    
+    <div class="container">
+        <nav>
+            <div class="logo"><a href="index.html">DG — 2025</a></div>
+            <div class="links">
+                <a href="index.html">← HOME</a>
+            </div>
+        </nav>
+
+        <main class="about-grid">
+            <aside class="profile-frame">
+                <div class="profile-image-placeholder">
+                    </div>
+                
+                <div class="mono" style="margin-bottom: 1rem;">CONNECT</div>
+                <div style="font-family: var(--font-mono); font-size: 0.9rem;">
+                    <a href="#" style="display:block; margin-bottom: 0.5rem;">TWITTER ↗</a>
+                    <a href="#" style="display:block; margin-bottom: 0.5rem;">GITHUB ↗</a>
+                    <a href="#" style="display:block; margin-bottom: 0.5rem;">EMAIL ↗</a>
+                </div>
+            </aside>
+
+            <article>
+                <h1 class="bio-headline">Exploring the intersection of design, code, and slow living.</h1>
+                
+                <div class="bio-text">
+                    <p>I am a multidisciplinary designer and developer based in Tokyo. For the last decade, I have been obsessed with the web as a medium for thought—not just a platform for applications.</p>
+                    <p>This site is my <strong>Digital Garden</strong>. Unlike a blog, which is a chronological stream, a garden is a collection of evolving notes. Some are seedlings (just started), some are evergreen (mature thoughts).</p>
+                    <p>I believe in software that respects the user's attention, interfaces that feel like physical objects, and code that lasts.</p>
+                </div>
+
+                <div class="now-section">
+                    <div class="mono" style="margin-bottom: 1rem; color: rgba(255,255,255,0.5);">WHAT I'M DOING NOW</div>
+                    <ul class="now-list">
+                        <li>
+                            <span>Reading</span>
+                            <span class="mono">The Timeless Way of Building</span>
+                        </li>
+                        <li>
+                            <span>Building</span>
+                            <span class="mono">A generative art engine</span>
+                        </li>
+                        <li>
+                            <span>Learning</span>
+                            <span class="mono">Rust & WebGPU</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="timeline-section">
+                    <div class="mono" style="margin-bottom: var(--spacing-md);">TIMELINE</div>
+                    
+                    <div class="timeline-item">
+                        <div class="time-year">2023—</div>
+                        <div>
+                            <div class="time-role">Independent Creator</div>
+                            <span class="time-company">Freelance</span>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="time-year">2020—23</div>
+                        <div>
+                            <div class="time-role">Senior Product Designer</div>
+                            <span class="time-company">Tech Giant Corp</span>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="time-year">2018—20</div>
+                        <div>
+                            <div class="time-role">Frontend Developer</div>
+                            <span class="time-company">Startup Inc</span>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+
+        <footer>
+            © 2025 DIGITAL GARDEN
+        </footer>
+    </div>
+	<!-- ============================================ -->
+<!-- PASTE THIS BEFORE THE CLOSING </body> TAG    -->
+<!-- ============================================ -->
+
+<style>
+    /* MODAL STYLES */
+    .modal-backdrop {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(244, 244, 240, 0.8);
+        backdrop-filter: blur(8px);
+        z-index: 10000;
+        display: flex; justify-content: center; align-items: center;
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+
+    .modal-backdrop.active {
+        opacity: 1; pointer-events: all;
+    }
+
+    .modal-card {
+        background: var(--paper);
+        border: 1px solid var(--ink);
+        padding: 3rem;
+        width: 100%; max-width: 500px;
+        position: relative;
+        transform: translateY(20px);
+        transition: transform 0.3s ease;
+        box-shadow: 20px 20px 0px rgba(26, 26, 26, 0.1);
+    }
+
+    .modal-backdrop.active .modal-card {
+        transform: translateY(0);
+    }
+
+    .modal-close {
+        position: absolute; top: 1rem; right: 1.5rem;
+        font-family: var(--font-mono); font-size: 1.5rem;
+        cursor: pointer; background: none; border: none; color: var(--ink);
+    }
+
+    .form-group { margin-bottom: 2rem; }
+    
+    .form-label {
+        display: block; font-family: var(--font-mono); font-size: 0.75rem;
+        margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;
+    }
+
+    .form-input, .form-textarea {
+        width: 100%; background: transparent;
+        border: none; border-bottom: 1px solid var(--ink);
+        padding: 0.5rem 0; font-family: var(--font-serif); font-size: 1.2rem;
+        color: var(--ink); outline: none; border-radius: 0;
+    }
+
+    .form-textarea { resize: none; min-height: 100px; }
+
+    .modal-submit {
+        width: 100%; padding: 1rem;
+        background: var(--ink); color: var(--paper);
+        border: none; font-family: var(--font-mono); text-transform: uppercase;
+        cursor: pointer; transition: opacity 0.3s;
+    }
+
+    .modal-submit:hover { opacity: 0.9; }
+</style>
+
+<!-- MODAL HTML -->
+<div class="modal-backdrop" id="contactModal">
+    <div class="modal-card">
+        <button class="modal-close" onclick="toggleModal()">×</button>
+        
+        <h2 style="font-family: var(--font-serif); font-size: 2rem; margin-bottom: 0.5rem;">Correspondence</h2>
+        <p style="font-family: var(--font-mono); font-size: 0.8rem; margin-bottom: 2rem; opacity: 0.6;">DROP A NOTE IN THE GARDEN</p>
+        
+        <form onsubmit="event.preventDefault(); handleFormSubmit(this);">
+            <div class="form-group">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-input" required placeholder="Guest">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Message</label>
+                <textarea class="form-textarea" required placeholder="Your thoughts..."></textarea>
+            </div>
+            <button type="submit" class="modal-submit">Send Message</button>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL SCRIPT -->
+<script>
+    function toggleModal() {
+        const modal = document.getElementById('contactModal');
+        modal.classList.toggle('active');
+    }
+
+    function handleFormSubmit(form) {
+        const btn = form.querySelector('button');
+        const originalText = btn.innerText;
+        btn.innerText = "SENT SUCCESSFULLY";
+        btn.style.background = "#4A4A4A";
+        
+        setTimeout(() => {
+            toggleModal();
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = "var(--ink)";
+                form.reset();
+            }, 500);
+        }, 1500);
+    }
+
+    // Connect to existing footer input if it exists
+    document.addEventListener('DOMContentLoaded', () => {
+        const footerArrow = document.querySelector('.submit-arrow');
+        const footerInput = document.querySelector('.email-input');
+        
+        if (footerArrow) {
+            // Remove old listener if possible (optional)
+            // Add new trigger
+            footerArrow.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Stop the old script
+                toggleModal();
+            };
+        }
+        
+        if (footerInput) {
+            footerInput.onclick = () => toggleModal();
+            footerInput.placeholder = "Click to open contact form...";
+            footerInput.readOnly = true;
+        }
+    });
+</script>
+</body>
+</html>

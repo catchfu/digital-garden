@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // DIGITAL GARDEN RULES
+    // --------------------
+    
+    // Match the path structure used in the app:
+    // artifacts/{appId}/public/data/posts
+    match /artifacts/{appId}/public/data/posts/{document=**} {
+      
+      // READ: Public
+      // Allow anyone to read, even if they are just an anonymous visitor.
+      allow read: if true;
+      
+      // WRITE: Admin Only
+      // Only allow writes if the user is actually logged in (Email/Password).
+      // Anonymous users (visitors) have 'isAnonymous == true', so we block them.
+      allow write: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+  }
+}
