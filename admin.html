@@ -32,16 +32,22 @@
         let userEventsCol; 
         let currentUser = null;
 
-        // --- AUTH SETUP (Fix for "Access to storage not allowed") ---
+        // --- AUTH SETUP ---
         (async () => {
-            try {
-                // Try standard persistence
-                await setPersistence(auth, browserLocalPersistence);
-            } catch (e) {
-                console.warn("Local storage blocked, falling back to memory.", e);
-                await setPersistence(auth, inMemoryPersistence);
-            }
+            try { await setPersistence(auth, browserLocalPersistence); } 
+            catch (e) { await setPersistence(auth, inMemoryPersistence); }
         })();
+
+        // --- HELPER: AUTO READ TIME ---
+        window.updateReadTime = (textarea) => {
+            const text = textarea.value;
+            const wordsPerMinute = 200;
+            const wordCount = text.trim().split(/\s+/).length;
+            const minutes = Math.ceil(wordCount / wordsPerMinute);
+            // Update the input field
+            const readTimeInput = document.querySelector('input[name="readTime"]');
+            if(readTimeInput) readTimeInput.value = (minutes || 1) + " MIN READ";
+        };
 
         // --- STATE & TABS ---
         window.switchTab = (tabName) => {
@@ -142,13 +148,20 @@
                 attachData = { url: urlInput.value, type: 'link', name: 'External Link' };
             }
 
+            // Ensure read time is set if empty
+            let finalReadTime = f.readTime.value;
+            if(!finalReadTime) {
+                const words = f.content.value.trim().split(/\s+/).length;
+                finalReadTime = Math.ceil(words / 200) + " MIN READ";
+            }
+
             const data = {
                 title: f.title.value,
                 tag: f.tag.value.toUpperCase(),
                 intro: f.intro.value,
                 content: f.content.value,
                 date: new Date().toISOString(),
-                readTime: f.readTime.value,
+                readTime: finalReadTime,
                 visibility: f.visibility.value, 
                 isFeatured: f.isFeatured.checked,
                 isPillar: f.isPillar.checked,
@@ -388,11 +401,11 @@
                         <div class="checkbox-group" style="border:none; padding:0; margin:0; align-items:end;"><div class="checkbox-wrapper"><input type="checkbox" name="isFeatured"> Featured</div><div class="checkbox-wrapper"><input type="checkbox" name="isPillar"> Pillar</div></div>
                     </div>
                     <label>HEADLINE</label><input type="text" name="title" required>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;"><div><label>TAG</label><input type="text" name="tag"></div><div><label>READ TIME</label><input type="text" name="readTime"></div></div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;"><div><label>TAG</label><input type="text" name="tag"></div><div><label>READ TIME (Auto)</label><input type="text" name="readTime" readonly placeholder="Type content to calculate..."></div></div>
                     <label>ATTACHMENT (Max 500KB or URL)</label><input type="file" id="fileInput"><input type="text" id="urlInput" placeholder="OR paste external link here...">
                     <label>INTRO</label><input type="text" name="intro">
                     <label>CONTENT (MARKDOWN)</label>
-                    <textarea name="content" style="min-height: 300px; font-family: 'JetBrains Mono', monospace;" required placeholder="# Title&#10;&#10;Write markdown content here..."></textarea>
+                    <textarea name="content" style="min-height: 300px; font-family: 'JetBrains Mono', monospace;" required placeholder="# Title&#10;&#10;Write markdown content here..." oninput="updateReadTime(this)"></textarea>
                     <button type="submit" style="width:100%">SAVE POST</button>
                 </form>
                 <div style="margin-top:4rem; border-top:1px solid var(--ink); padding-top:2rem;"><div class="mono" style="margin-bottom:1rem;">ARCHIVE</div><div id="postsList"></div></div>
