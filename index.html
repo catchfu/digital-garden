@@ -11,7 +11,7 @@
         import { getFirestore, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // --- CONFIGURATION (Preserved your keys) ---
+        // --- CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyBNyFkW_G7FpmjRgGtdAzcFvmF5gZLaDgM",
             authDomain: "digital-garden-f4ac9.firebaseapp.com",
@@ -27,7 +27,7 @@
         const appId = 'default-app-id';
         const postsCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
 
-        // AUTH
+        // AUTH: Only run if we have a token (Admin). Otherwise, read as Public.
         async function initAuth() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -37,24 +37,22 @@
             finally { loadGarden(); }
         }
 
-        // LOAD DATA
         async function loadGarden() {
             const featuredContainer = document.getElementById('featured-container');
             const pillarsContainer = document.getElementById('pillars-container');
             const streamContainer = document.getElementById('stream-container');
             
-            streamContainer.innerHTML = '<div class="mono" style="padding:1rem; opacity:0.5;">Loading stream...</div>';
+            streamContainer.innerHTML = '<div class="mono" style="padding:2rem; text-align:center; opacity:0.5;">Loading garden...</div>';
 
             try {
                 const q = query(postsCol, orderBy("date", "desc"), limit(50));
                 const snapshot = await getDocs(q);
                 
                 if (snapshot.empty) {
-                    streamContainer.innerHTML = '<div class="mono" style="padding:1rem;">Garden is empty. Seed content in Admin.</div>';
+                    streamContainer.innerHTML = '<div class="mono" style="padding:2rem; text-align:center;">Garden is empty. Seed some content in Admin.</div>';
                     return;
                 }
 
-                // Reset containers
                 featuredContainer.innerHTML = '';
                 pillarsContainer.innerHTML = '';
                 streamContainer.innerHTML = '';
@@ -66,35 +64,26 @@
                     const data = doc.data();
                     const id = doc.id;
 
-                    // 1. FEATURED: Goes into the Masthead now
+                    // FILTER: Only show PUBLIC posts
+                    if (data.visibility && data.visibility !== 'public') return;
+
                     if (data.isFeatured && !featuredFound) {
                         renderFeatured(data, id, featuredContainer);
                         featuredFound = true;
                         return; 
                     }
-                    // 2. PILLARS
                     if (data.isPillar && pillarCount < 4) {
                         renderPillar(data, id, pillarCount, pillarsContainer);
                         pillarCount++;
                         return; 
                     }
-                    // 3. STREAM
                     if (!data.isFeatured && !data.isPillar) {
                         renderStreamItem(data, id, streamContainer);
                     }
                 });
 
-                if (pillarCount === 0) pillarsContainer.innerHTML = '<div class="pillar-card" style="border:none; padding:1rem;"><div class="pillar-desc" style="opacity:0.4">No pillars defined.</div></div>';
-                
-                // Fallback if no featured post found
-                if (!featuredFound) {
-                    featuredContainer.innerHTML = `
-                        <div class="featured-fallback">
-                            <div class="mono">NO FEATURED ESSAY</div>
-                            <p>Select "Feature on Homepage" in Admin to display an article here.</p>
-                        </div>
-                    `;
-                }
+                if (pillarCount === 0) pillarsContainer.innerHTML = '<div class="pillar-card"><div class="pillar-desc" style="opacity:0.4">No pillars defined. Check "Is Pillar" in Admin.</div></div>';
+                if (!featuredFound) featuredContainer.innerHTML = '<div class="featured-fallback"><div class="mono">NO FEATURED ESSAY</div></div>';
 
             } catch (err) {
                 console.error("Data load error:", err);
@@ -102,32 +91,20 @@
             }
         }
 
-        // RENDER: Featured (Compact Version)
         function renderFeatured(data, id, container) {
             const fileUrl = data.attachmentUrl || data.imageUrl;
-            const fileType = data.attachmentType || "";
-            const isImage = fileUrl && (fileType.startsWith('image/') || fileUrl.match(/\.(jpeg|jpg|gif|png)$/i));
-
-            // Smaller visual for the compact layout
-            let visualHtml = '';
-            if (isImage) {
-                visualHtml = `<div class="feat-img"><img src="${fileUrl}" alt="Featured"></div>`;
-            } else {
-                // Mini abstract art
-                visualHtml = `
-                <div class="feat-abstract">
-                    <div class="geo-shape" style="width:40%; height:40%; border-radius:50%; top:10%; left:10%;"></div>
-                    <div class="geo-shape" style="width:80%; height:1px; background:var(--ink); top:50%; left:10%; transform:rotate(-15deg);"></div>
-                </div>`;
-            }
+            const isImage = fileUrl && (data.attachmentType?.startsWith('image/') || fileUrl.match(/\.(jpeg|jpg|gif|png)$/i));
+            
+            let visualHtml = isImage ? `<div class="feat-img"><img src="${fileUrl}" alt="Cover"></div>` : 
+                `<div class="feat-abstract"><div class="geo-shape" style="width:50%;height:50%;border-radius:50%;top:25%;left:25%"></div></div>`;
 
             container.innerHTML = `
                 <a href="article.html?id=${id}" class="featured-card">
-                    <div class="mono" style="margin-bottom:0.5rem; color:var(--ink-dim);">★ LATEST THINKING</div>
+                    <div class="mono" style="margin-bottom:0.5rem; color:#555;">★ LATEST THINKING</div>
                     <div class="feat-layout">
                         <div class="feat-text">
                             <h3>${data.title}</h3>
-                            <p>${data.intro || 'Read the full entry...'}</p>
+                            <p>${data.intro || 'Read entry...'}</p>
                             <span class="link-arrow">READ ESSAY &rarr;</span>
                         </div>
                         ${visualHtml}
@@ -157,271 +134,95 @@
             `);
         }
 
-        window.addEventListener('DOMContentLoaded', initAuth);
+        window.addEventListener('DOMContentLoaded', loadGarden);
     </script>
 
     <style>
-        /* COMPACT SWISS DESIGN SYSTEM */
-        :root { 
-            --paper: #F4F4F0; 
-            --ink: #1A1A1A; 
-            --ink-dim: #555; 
-            --font-serif: 'Playfair Display', serif; 
-            --font-sans: 'Inter', sans-serif; 
-            --font-mono: 'JetBrains Mono', monospace; 
-            
-            /* Tighter Spacing */
-            --spacing-sm: 0.5rem;
-            --spacing-md: 1.5rem;
-            --spacing-lg: 3rem; /* Reduced from 4rem */
-            --spacing-xl: 4rem; /* Reduced from 8rem */
-            
-            --border: 1px solid var(--ink);
-        }
-
-        /* Reset & Base */
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; overflow-x: hidden; }
+        :root { --paper: #F4F4F0; --ink: #1A1A1A; --font-serif: 'Playfair Display', serif; --font-sans: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace; --spacing-md: 1.5rem; --spacing-lg: 3rem; --border: 1px solid var(--ink); }
+        body { background-color: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; margin: 0; overflow-x: hidden; }
         a { color: inherit; text-decoration: none; }
-        
-        /* Noise */
         .noise-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.35; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; }
-
-        /* Layout Utilities */
+        
         .container { max-width: 1400px; margin: 0 auto; padding: 0 var(--spacing-md); }
         .mono { font-family: var(--font-mono); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; }
-        .border-top { border-top: var(--border); }
-        .border-bottom { border-bottom: var(--border); }
-
-        /* COMPACT NAV */
+        
         nav { display: flex; justify-content: space-between; align-items: center; height: 60px; font-family: var(--font-mono); font-size: 0.8rem; border-bottom: var(--border); }
-
-        /* MASTHEAD (Merged Hero + Featured) */
-        .masthead {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr; /* Left side slightly wider for title */
-            min-height: 45vh; /* Drastically reduced from 70vh */
-        }
-
-        /* Left: Title Area */
-        .title-area {
-            padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-lg) 0;
-            border-right: var(--border);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
         
-        .main-title {
-            font-family: var(--font-serif);
-            font-size: clamp(2rem, 5vw, 4.5rem); /* Reduced size for single line */
-            line-height: 1;
-            letter-spacing: -0.02em;
-            margin-bottom: 1rem;
-            white-space: nowrap; /* Ensures it stays on one line if space allows */
-        }
+        /* MASTHEAD */
+        .masthead { display: grid; grid-template-columns: 1.2fr 1fr; min-height: 45vh; }
+        .title-area { padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-lg) 0; border-right: var(--border); display: flex; flex-direction: column; justify-content: space-between; }
+        .main-title { font-family: var(--font-serif); font-size: clamp(2rem, 5vw, 4.5rem); line-height: 1; letter-spacing: -0.02em; margin-bottom: 1rem; white-space: nowrap; }
+        .subtitle { font-family: var(--font-mono); font-size: 0.85rem; color: #555; max-width: 300px; }
+        .featured-area { padding: var(--spacing-lg); display: flex; flex-direction: column; justify-content: center; }
         
-        .subtitle {
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            color: var(--ink-dim);
-            max-width: 300px;
-            line-height: 1.4;
-        }
-
-        /* Right: Featured Area */
-        .featured-area {
-            padding: var(--spacing-lg);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        /* Featured Card Styling */
-        .featured-card {
-            display: block;
-            height: 100%;
-            transition: transform 0.3s ease;
-        }
-        .featured-card:hover { transform: translateY(-2px); }
-
-        .feat-layout {
-            display: flex;
-            gap: 1.5rem;
-            align-items: start;
-        }
-
-        .feat-text h3 {
-            font-family: var(--font-serif);
-            font-size: 1.75rem;
-            line-height: 1.1;
-            margin-bottom: 0.75rem;
-        }
-        .feat-text p {
-            font-size: 1rem;
-            color: var(--ink-dim);
-            margin-bottom: 1rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        
-        /* Compact Visuals */
-        .feat-img, .feat-abstract {
-            width: 120px;
-            height: 120px;
-            flex-shrink: 0;
-            border: var(--border);
-            position: relative;
-            overflow: hidden;
-        }
+        /* FEATURED CARD */
+        .featured-card:hover { transform: translateY(-2px); transition: 0.3s; }
+        .feat-layout { display: flex; gap: 1.5rem; align-items: start; }
+        .feat-text h3 { font-family: var(--font-serif); font-size: 1.75rem; line-height: 1.1; margin-bottom: 0.75rem; }
+        .feat-text p { font-size: 1rem; color: #555; margin-bottom: 1rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .feat-img, .feat-abstract { width: 120px; height: 120px; flex-shrink: 0; border: var(--border); overflow: hidden; position: relative; }
         .feat-img img { width: 100%; height: 100%; object-fit: cover; }
         .geo-shape { position: absolute; border: 1px solid var(--ink); }
-
-        .link-arrow { font-family: var(--font-mono); font-size: 0.75rem; border-bottom: 1px solid transparent; transition: border 0.2s; }
+        .link-arrow { font-family: var(--font-mono); font-size: 0.75rem; border-bottom: 1px solid transparent; }
         .featured-card:hover .link-arrow { border-bottom: 1px solid var(--ink); }
 
-        /* STREAM SECTION (List) */
+        /* SECTIONS */
         .stream-section { padding-top: var(--spacing-lg); }
-        .stream-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
-        
-        .stream-item {
-            display: grid;
-            grid-template-columns: 100px 1fr auto;
-            align-items: baseline;
-            padding: 1rem 0;
-            border-top: var(--border);
-            cursor: pointer;
-            transition: background 0.2s;
-        }
+        .stream-header { display: flex; justify-content: space-between; margin-bottom: 1rem; }
+        .stream-item { display: grid; grid-template-columns: 100px 1fr auto; align-items: baseline; padding: 1rem 0; border-top: var(--border); cursor: pointer; transition: 0.2s; }
         .stream-item:hover { background: rgba(0,0,0,0.03); }
-        
         .stream-title { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 400; }
-        .date { color: var(--ink-dim); }
-        .tag { opacity: 0.5; }
-
-        /* PILLARS (Small Grid) */
+        
         .pillars-section { padding: var(--spacing-lg) 0; }
-        .pillars-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr); /* 4 columns instead of 2 for efficiency */
-            border-left: var(--border);
-            border-top: var(--border);
-        }
-        
-        .pillar-card {
-            padding: 1.5rem;
-            border-right: var(--border);
-            border-bottom: var(--border);
-            min-height: 180px; /* Shorter cards */
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            transition: background 0.3s;
-        }
+        .pillars-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-left: var(--border); border-top: var(--border); }
+        .pillar-card { padding: 1.5rem; border-right: var(--border); border-bottom: var(--border); min-height: 180px; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
         .pillar-card:hover { background: var(--ink); color: var(--paper); }
-        
-        .pillar-header { display: flex; justify-content: space-between; align-items: baseline; }
         .pillar-num { font-family: var(--font-serif); font-size: 1.5rem; }
         .pillar-title { font-family: var(--font-mono); font-weight: bold; letter-spacing: 0.1em; }
-        .pillar-desc { font-size: 0.85rem; opacity: 0.7; line-height: 1.3; }
-
-        /* RESOURCES / FOOTER */
-        .resources-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2rem; padding: var(--spacing-lg) 0; }
-        .resource-col h3 { font-family: var(--font-mono); font-size: 0.75rem; opacity: 0.5; margin-bottom: 1rem; }
-        .resource-list { list-style: none; }
-        .resource-list li { margin-bottom: 0.5rem; font-size: 0.9rem; font-family: var(--font-mono); }
         
-        footer { padding: var(--spacing-lg) 0; border-top: var(--border); text-align: center; }
         .footer-input-wrapper { position: relative; margin: 2rem auto; max-width: 600px; }
         .email-input { width: 100%; background: transparent; border: none; border-bottom: 2px solid var(--ink); font-family: var(--font-serif); font-size: 2rem; padding: 0.5rem 0; outline: none; text-align: center; }
-        .footer-meta { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.7rem; opacity: 0.6; }
-
-        /* RESPONSIVE */
+        footer { padding: var(--spacing-lg) 0; border-top: var(--border); text-align: center; }
+        
         @media (max-width: 900px) {
             .masthead { grid-template-columns: 1fr; min-height: auto; }
             .title-area { border-right: none; border-bottom: var(--border); padding-bottom: 2rem; }
             .featured-area { padding: 2rem 0; }
             .pillars-grid { grid-template-columns: 1fr 1fr; }
         }
-        @media (max-width: 600px) {
-            .stream-item { grid-template-columns: 1fr; gap: 0.5rem; }
-            .stream-item .date { font-size: 0.7rem; margin-bottom: 0.25rem; }
-            .stream-item .tag { display: none; }
-            .pillars-grid { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>
     <div class="noise-overlay"></div>
-
     <div class="container">
-        <!-- NAV -->
         <nav>
             <div class="logo">DG — 2025</div>
-            <div class="links">
-                <a href="about.html" style="margin-right: 1.5rem;">[ABOUT]</a>
-                <a href="#index">[INDEX]</a>
-            </div>
+            <div class="links"><a href="about.html" style="margin-right: 1.5rem;">[ABOUT]</a><a href="#index">[INDEX]</a></div>
         </nav>
 
-        <!-- MASTHEAD (MERGED HERO + FEATURED) -->
         <header class="masthead">
-            <!-- Left: Identity -->
             <div class="title-area">
                 <div class="main-title">DIGITAL GARDEN</div>
-                <div class="subtitle">
-                    A curated archive of thoughts on design, code, and the slow web.
-                    <br><br>
-                    <span class="mono">EST. 2025 — TOKYO / SF</span>
-                </div>
+                <div class="subtitle">A curated archive of thoughts on design, code, and the slow web.<br><br><span class="mono">EST. 2025 — TOKYO / SF</span></div>
             </div>
-
-            <!-- Right: Dynamic Featured Section -->
-            <div class="featured-area" id="featured-container">
-                <!-- JS Injects content here -->
-                <div class="mono">Loading featured...</div>
-            </div>
+            <div class="featured-area" id="featured-container"><div class="mono">Loading featured...</div></div>
         </header>
 
-        <!-- STREAM (LIST) -->
         <section class="stream-section" id="index">
-            <div class="stream-header">
-                <div class="mono">01 — THE STREAM</div>
-                <a href="#" class="mono" style="text-decoration:underline;">VIEW ARCHIVE</a>
-            </div>
-            <div id="stream-container">
-                <!-- JS Injects list items here -->
-            </div>
+            <div class="stream-header"><div class="mono">01 — THE STREAM</div></div>
+            <div id="stream-container"></div>
         </section>
 
-        <!-- PILLARS (GRID) -->
         <section class="pillars-section">
             <div class="mono" style="margin-bottom: 1rem;">02 — PILLARS</div>
-            <div class="pillars-grid" id="pillars-container">
-                <!-- JS Injects pillars here -->
-            </div>
-        </section>
-
-        <!-- FOOTER / RESOURCES -->
-        <section class="section-padding border-top">
-            <div class="mono">03 — THE STASH</div>
-            <div class="resources-grid">
-                <div class="resource-col"><h3>READING</h3><ul class="resource-list"><li><a href="#">The Timeless Way of Building</a></li><li><a href="#">Grid Systems (Müller-Brockmann)</a></li></ul></div>
-                <div class="resource-col"><h3>STACK</h3><ul class="resource-list"><li><a href="#">Firebase / Firestore</a></li><li><a href="#">Vanilla JS (ES6)</a></li></ul></div>
-                <div class="resource-col"><h3>FRIENDS</h3><ul class="resource-list"><li><a href="#">Siteinspire</a></li><li><a href="#">Awwwards</a></li></ul></div>
-            </div>
+            <div class="pillars-grid" id="pillars-container"></div>
         </section>
 
         <footer>
             <div class="mono">CORRESPONDENCE</div>
-            <div class="footer-input-wrapper">
-                <input type="email" class="email-input" placeholder="Email...">
-            </div>
-            <div class="footer-meta">
-                <div>© 2025 DIGITAL GARDEN</div>
-                <div>AESTHETIC INTELLIGENCE</div>
+            <div class="footer-input-wrapper"><input type="email" class="email-input" placeholder="Email..."></div>
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; font-family:var(--font-mono); opacity:0.6;">
+                <div>© 2025 DIGITAL GARDEN</div><div>AESTHETIC INTELLIGENCE</div>
             </div>
         </footer>
     </div>

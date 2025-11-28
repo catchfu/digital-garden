@@ -8,7 +8,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, getDoc, doc, deleteDoc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ⚠️ CONFIGURATION ⚠️
@@ -31,6 +31,17 @@
         let userTodosCol; 
         let userEventsCol; 
         let currentUser = null;
+
+        // --- AUTH SETUP (Fix for "Access to storage not allowed") ---
+        (async () => {
+            try {
+                // Try standard persistence
+                await setPersistence(auth, browserLocalPersistence);
+            } catch (e) {
+                console.warn("Local storage blocked, falling back to memory.", e);
+                await setPersistence(auth, inMemoryPersistence);
+            }
+        })();
 
         // --- STATE & TABS ---
         window.switchTab = (tabName) => {
@@ -104,7 +115,7 @@
                 });
             } catch (e) {
                 console.error(e);
-                list.innerHTML = `<div style="color:red;">Error loading posts: ${e.message}</div>`;
+                list.innerHTML = `<div style="color:red;">Error loading posts. Check console.</div>`;
             }
         }
 
