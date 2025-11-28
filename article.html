@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loading... | Digital Garden</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -33,7 +34,6 @@
 
             try {
                 const docSnap = await getDoc(doc(postsCol, id));
-                
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     
@@ -42,6 +42,7 @@
                     document.getElementById('art-tag').innerText = data.tag || '#NOTE';
                     document.getElementById('art-time').innerText = data.readTime || '3 MIN READ';
                     
+                    // Attachment Handling
                     const fileUrl = data.attachmentUrl || data.imageUrl;
                     const fileType = data.attachmentType || ""; 
                     const fileName = data.attachmentName || "Attached File";
@@ -49,36 +50,29 @@
                     attachContainer.innerHTML = "";
 
                     if (fileUrl) {
-                        // 1. IF IMAGE -> Show it visually
+                        // Image?
                         if (fileType.startsWith('image/') || fileUrl.match(/\.(jpeg|jpg|gif|png)$/i)) {
                              attachContainer.innerHTML = `<img src="${fileUrl}" alt="${data.title}" style="width:100%; height:auto; border:1px solid var(--ink); margin-bottom:2rem; display:block;">`;
-                        } 
-                        // 2. IF FILE (PDF/Zip/Text)
-                        else {
-                            let btnHtml = '';
+                        } else {
+                            // File?
+                            const btnHtml = fileUrl.startsWith('data:') 
+                                ? `<a href="${fileUrl}" download="${fileName}" class="file-btn">DOWNLOAD FILE ↓</a>`
+                                : `<a href="${fileUrl}" target="_blank" class="file-btn">OPEN LINK ↗</a>`;
                             
-                            // FIX: Check if it is a Data URL (Stored in DB) vs External Link
-                            if (fileUrl.startsWith('data:')) {
-                                // Data URL: Must use 'download' attribute to prevent browser security error
-                                btnHtml = `<a href="${fileUrl}" download="${fileName}" class="file-btn">DOWNLOAD FILE ↓</a>`;
-                            } else {
-                                // External Link: Open in new tab
-                                btnHtml = `<a href="${fileUrl}" target="_blank" class="file-btn">OPEN LINK ↗</a>`;
-                            }
-
                             attachContainer.innerHTML = `
                                 <div class="file-card">
                                     <div class="mono" style="margin-bottom:0.5rem; opacity:0.6;">FILE ATTACHMENT</div>
                                     <div style="font-family:var(--font-serif); font-size:1.2rem; margin-bottom:1rem;">${fileName}</div>
                                     ${btnHtml}
-                                </div>
-                            `;
+                                </div>`;
                         }
                     }
                     
                     document.getElementById('art-title').innerText = data.title;
                     document.getElementById('art-intro').innerText = data.intro || '';
-                    document.getElementById('art-content').innerHTML = data.content;
+                    
+                    // MARKDOWN PARSING HERE
+                    document.getElementById('art-content').innerHTML = marked.parse(data.content);
                 } else {
                     window.location.href = '404.html';
                 }
@@ -102,9 +96,16 @@
         .article-intro { font-size: 1.25rem; opacity: 0.8; font-style: italic; font-family: var(--font-serif); max-width: 700px; margin: 0 auto; }
         
         .content-wrapper { max-width: 720px; margin: 0 auto; padding-bottom: 8rem; }
+        /* Markdown Styles */
         .prose p { margin-bottom: 1.5rem; font-size: 1.1rem; line-height: 1.7; }
-        .prose h2 { font-family: var(--font-serif); font-size: 2rem; margin-top: 3rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--ink); }
-        .prose blockquote { border-left: 4px solid var(--ink); padding-left: 2rem; margin: 2.5rem 0; font-family: var(--font-serif); font-size: 1.5rem; font-style: italic; }
+        .prose h1, .prose h2, .prose h3 { font-family: var(--font-serif); margin-top: 3rem; margin-bottom: 1rem; line-height: 1.1; }
+        .prose h2 { font-size: 2rem; border-bottom: 1px solid var(--ink); padding-bottom: 0.5rem; }
+        .prose blockquote { border-left: 4px solid var(--ink); padding-left: 2rem; margin: 2.5rem 0; font-family: var(--font-serif); font-size: 1.5rem; font-style: italic; color: #555; }
+        .prose pre { background: #e8e8e4; padding: 1.5rem; overflow-x: auto; margin: 2rem 0; border: 1px solid var(--ink); }
+        .prose code { font-family: var(--font-mono); font-size: 0.9em; background: rgba(0,0,0,0.05); padding: 0.2em 0.4em; }
+        .prose pre code { background: transparent; padding: 0; }
+        .prose ul, .prose ol { margin-bottom: 1.5rem; padding-left: 2rem; }
+        .prose img { max-width: 100%; height: auto; margin: 2rem 0; border: 1px solid var(--ink); }
         
         .file-card { border: 1px solid var(--ink); padding: 2rem; margin-bottom: 2rem; background: rgba(26,26,26, 0.02); text-align: center; }
         .file-btn { display: inline-block; padding: 0.5rem 1rem; border: 1px solid var(--ink); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; transition: 0.3s; }
