@@ -25,7 +25,6 @@
         const cloudflareWorkerUrl = "https://garden-uploader.catchfu.workers.dev"; // Your Worker URL
         const cloudflareSecret = "MySecretPassword987"; // Must match env.UPLOAD_SECRET in Worker
 
-
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -62,7 +61,7 @@
             
             if (tabName === 'journal') loadPosts();
             if (tabName === 'tasks') loadTodos();
-            if (tabName === 'plan') loadCalendar(); // Loads current month
+            if (tabName === 'plan') loadCalendar();
         };
 
         // --- AUTHENTICATION ---
@@ -111,13 +110,9 @@
                     
                     const div = document.createElement('div');
                     div.className = 'item-row';
-                    // UPDATED: Title is now a link
                     div.innerHTML = `
                         <div>
-                            <div class="item-title">
-                                <a href="article.html?id=${doc.id}" target="_blank" class="archive-link">${p.title}</a> 
-                                ${statusBadge}
-                            </div>
+                            <div class="item-title">${p.title} ${statusBadge}</div>
                             <div class="mono date">${new Date(p.date).toLocaleDateString()}</div>
                         </div>
                         <div class="actions">
@@ -133,55 +128,41 @@
             }
         }
 
-        // --- UPLOAD & DELETE HANDLER ---
+        // --- UPLOAD HANDLER (Smart Switch) ---
         async function handleUpload(file) {
+            // 1. If small (<500KB), use Database Storage (Free, Easy)
             if (file.size < 500 * 1024) {
+                console.log("File small, using DB storage");
                 return new Promise((resolve) => {
                     const reader = new FileReader();
                     reader.onload = (e) => resolve(e.target.result);
                     reader.readAsDataURL(file);
                 });
             }
+            
+            // 2. If large, try Cloudflare R2
             if (cloudflareWorkerUrl && cloudflareWorkerUrl.startsWith('http')) {
+                console.log("File large, uploading to R2...");
                 const filename = Date.now() + '-' + file.name.replace(/\s+/g, '-');
                 const response = await fetch(`${cloudflareWorkerUrl}/${filename}`, {
                     method: 'PUT',
                     headers: { 'X-Custom-Auth': cloudflareSecret },
                     body: file
                 });
+                
                 if (!response.ok) throw new Error("R2 Upload Failed");
-                return await response.text(); 
+                return await response.text(); // Returns public URL
             }
+
             throw new Error("File too large for DB (>500KB) and Cloudflare not configured.");
         }
 
-        window.removeAttachment = async () => {
-            if(!currentAttachment.url) return;
-            if(confirm("Remove attachment? If hosted on R2, this will delete it.")) {
-                if(currentAttachment.url.startsWith("http") && !currentAttachment.url.startsWith("data:")) {
-                    try {
-                        const filename = currentAttachment.url.split('/').pop();
-                        const response = await fetch(`${cloudflareWorkerUrl}/${filename}`, {
-                            method: 'DELETE',
-                            headers: { 'X-Custom-Auth': cloudflareSecret }
-                        });
-                        if(!response.ok) console.warn("Cloud delete failed or file not found.");
-                    } catch(e) { console.warn("Delete error:", e); }
-                }
-                
-                currentAttachment = { url: "", type: "", name: "" };
-                document.getElementById('fileStatus').innerHTML = "Removed.";
-                document.getElementById('fileInput').value = "";
-                document.getElementById('urlInput').value = "";
-            }
-        }
-
-        // UPDATED: Save Logic with Preview Support
-        window.savePost = async (e, isPreview = false) => {
-            if(e) e.preventDefault();
-            const f = document.getElementById('postForm');
-            showFeedback(isPreview ? "Generating Preview..." : "Saving...");
+        window.savePost = async (e) => {
+            e.preventDefault();
+            const f = e.target;
+            showFeedback("Saving...");
             
+            // Handle Attachment
             let attachData = { ...currentAttachment };
             const fileInput = document.getElementById('fileInput');
             const urlInput = document.getElementById('urlInput');
@@ -195,6 +176,7 @@
                     attachData = { url: urlInput.value, type: 'link', name: 'External Link' };
                 }
 
+                // Auto read time
                 let finalReadTime = f.readTime.value;
                 if(!finalReadTime) {
                     const words = f.content.value.trim().split(/\s+/).length;
@@ -216,41 +198,16 @@
                     attachmentName: attachData.name
                 };
 
-                let savedId = isEditingPostId;
-
-                if (isEditingPostId) {
-                    await updateDoc(doc(postsCol, isEditingPostId), data);
-                } else {
-                    const newDoc = await addDoc(postsCol, data);
-                    savedId = newDoc.id;
-                }
+                if (isEditingPostId) await updateDoc(doc(postsCol, isEditingPostId), data);
+                else await addDoc(postsCol, data);
                 
-                if (isPreview) {
-                    // Open article in new tab
-                    window.open(`article.html?id=${savedId}`, '_blank');
-                    // We don't reset form on preview so you can keep editing
-                    showFeedback("Preview Opened", true);
-                    // Reload list to ensure ID exists if it was new
-                    if(!isEditingPostId) { 
-                        isEditingPostId = savedId; // Switch to edit mode
-                        loadPosts();
-                        document.getElementById('formTitle').innerText = "EDITING (PREVIEW MODE)";
-                    }
-                } else {
-                    resetPostForm();
-                    loadPosts();
-                    showFeedback("Saved!", true);
-                }
-
+                resetPostForm();
+                loadPosts();
+                showFeedback("Saved!", true);
             } catch (e) { 
                 alert("Error: " + e.message); 
                 showFeedback("Error");
             }
-        };
-
-        // Helper for the Preview button
-        window.saveAndPreview = () => {
-            savePost(null, true);
         };
 
         window.editPost = async (id) => {
@@ -272,16 +229,11 @@
                 currentAttachment = { url: d.attachmentUrl, type: d.attachmentType, name: d.attachmentName };
                 document.getElementById('formTitle').innerText = "EDITING";
                 
-                // UPDATED: Attachment Status with Link
+                // Update file status
                 const statusDiv = document.getElementById('fileStatus');
                 if(currentAttachment.url) {
-                    statusDiv.innerHTML = `
-                        <span style="color:blue">Current: ${currentAttachment.name || "Attachment"}</span> 
-                        <a href="${currentAttachment.url}" target="_blank" style="margin-left:5px; font-size:0.7rem; text-decoration:underline;">[OPEN]</a>
-                        <button type="button" onclick="removeAttachment()" class="btn-sm delete" style="margin-left:10px;">Remove / Delete</button>
-                    `;
-                } else {
-                    statusDiv.innerText = "";
+                    statusDiv.innerText = "Current: " + (currentAttachment.name || "Attachment");
+                    statusDiv.style.color = "blue";
                 }
 
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -363,78 +315,31 @@
         window.deleteTodo = async (id) => { if(confirm("Delete Task?")) { await deleteDoc(doc(userTodosCol, id)); loadTodos(); } };
 
         // ==========================================
-        // 3. PLAN (FULL CALENDAR) LOGIC
+        // 3. PLAN (CALENDAR) LOGIC
         // ==========================================
-        let calCurrentDate = new Date();
-
-        window.changeMonth = (delta) => {
-            calCurrentDate.setMonth(calCurrentDate.getMonth() + delta);
-            loadCalendar();
-        };
-
         async function loadCalendar() {
             const grid = document.getElementById('calGrid');
-            const monthLabel = document.getElementById('calMonthLabel');
-            
-            // UI Setup
-            const year = calCurrentDate.getFullYear();
-            const month = calCurrentDate.getMonth();
-            monthLabel.innerText = calCurrentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
-            
             grid.innerHTML = 'Loading...';
-
             try {
-                // Fetch ALL events (Inefficient but simple for now)
-                // Better: query(userEventsCol, where("date", ">=", startOfMonth), where("date", "<=", endOfMonth))
-                const q = query(userEventsCol);
+                const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+                let html = `<div class="cal-wrapper">`;
+                const q = query(userEventsCol, orderBy("date"));
                 const snap = await getDocs(q);
                 const events = [];
                 snap.forEach(d => events.push({id: d.id, ...d.data()}));
 
-                // Calculate Calendar Grid
-                const firstDay = new Date(year, month, 1);
-                const lastDay = new Date(year, month + 1, 0);
-                const daysInMonth = lastDay.getDate();
-                const startDayIndex = firstDay.getDay(); // 0 = Sunday
-
-                let html = `<div class="cal-month-grid">`;
-                
-                // Headers
-                ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].forEach(d => {
-                    html += `<div class="cal-header-cell mono">${d}</div>`;
-                });
-
-                // Empty cells before first day
-                for(let i=0; i<startDayIndex; i++) {
-                    html += `<div class="cal-cell empty"></div>`;
-                }
-
-                // Days
-                for(let d=1; d<=daysInMonth; d++) {
-                    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                    // Filter events for this specific date
-                    const dayEvents = events.filter(ev => ev.eventDate === dateStr);
-                    
-                    html += `<div class="cal-cell">
-                        <div class="cal-date-num mono">${d}</div>
-                        <div class="cal-events-list">`;
-                    
+                days.forEach((day, index) => {
+                    html += `<div class="cal-col"><div class="cal-head">${day}</div><div class="cal-body" id="day-${index}">`;
+                    const dayEvents = events.filter(e => e.day === day);
                     dayEvents.forEach(ev => {
-                        html += `<div class="cal-event-chip" title="${ev.title}">
-                            ${ev.time ? `<span style="opacity:0.7">${ev.time}</span>` : ''} ${ev.title}
-                            <span onclick="deleteEvent('${ev.id}')" style="cursor:pointer; color:red; margin-left:5px;">×</span>
-                        </div>`;
+                        html += `<div class="cal-event"><div class="event-time">${ev.time || ''}</div><div>${ev.title}</div><div class="event-share">${ev.sharedWith?.length ? '👥' : ''}</div><div onclick="deleteEvent('${ev.id}')" class="event-del">×</div></div>`;
                     });
-
                     html += `</div></div>`;
-                }
-
+                });
                 html += `</div>`;
                 grid.innerHTML = html;
-
             } catch (e) {
-                console.error(e);
-                grid.innerHTML = `<div style="color:red;">Error loading calendar: ${e.message}</div>`;
+                grid.innerHTML = `<div style="color:red; background:white; padding:1rem; border:1px solid red;"><strong>⚠️ Permission Error</strong><br>Update Firestore Rules.<br><small>${e.message}</small></div>`;
             }
         }
 
@@ -442,25 +347,23 @@
             e.preventDefault();
             const f = e.target;
             const emails = f.share.value.split(',').map(s => s.trim()).filter(s => s);
-
             try {
                 await addDoc(userEventsCol, {
                     title: f.title.value,
-                    eventDate: f.date.value, // YYYY-MM-DD
+                    day: f.day.value,
                     time: f.time.value,
                     ownerId: currentUser.uid,
                     sharedWith: emails,
-                    createdAt: new Date().toISOString() 
+                    date: new Date().toISOString() 
                 });
                 f.reset();
-                // Reset date to current view to avoid confusion
                 loadCalendar();
             } catch (e) { alert("Error adding event: " + e.message); }
         };
 
         window.deleteEvent = async (id) => { if(confirm("Remove event?")) { await deleteDoc(doc(userEventsCol, id)); loadCalendar(); } }
 
-        window.editPost = editPost; window.deletePost = deletePost; window.removeAttachment = removeAttachment; window.saveAndPreview = saveAndPreview;
+        window.editPost = editPost; window.deletePost = deletePost;
     </script>
 
     <style>
@@ -487,8 +390,6 @@
 
         .item-row { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid rgba(0,0,0,0.1); }
         .item-title { font-weight: 600; }
-        .item-title a { text-decoration: none; color: inherit; }
-        .item-title a:hover { text-decoration: underline; }
         .mono.date { font-size: 0.7rem; opacity: 0.6; }
         .badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; border: 1px solid currentColor; margin-left: 0.5rem; }
         .badge-public { color: green; }
@@ -497,23 +398,25 @@
         
         .btn-icon { background: transparent; color: var(--ink); padding: 0.3rem; font-size: 1.1rem; }
         .delete { color: red; }
+
+        .todo-item { display: flex; gap: 1rem; padding: 1rem; border: 1px solid var(--ink); margin-bottom: 0.5rem; align-items: center; background: white; }
+        .todo-item.done { opacity: 0.5; text-decoration: line-through; }
+        .todo-text { flex: 1; }
         
-        /* CALENDAR STYLES */
-        .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .cal-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid var(--ink); border-left: 1px solid var(--ink); }
-        .cal-header-cell { padding: 0.5rem; text-align: center; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: #EAEAE5; font-size: 0.7rem; }
-        .cal-cell { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); min-height: 100px; padding: 0.3rem; position: relative; background: white; }
-        .cal-cell.empty { background: #f9f9f9; }
-        .cal-date-num { position: absolute; top: 5px; right: 5px; font-size: 0.8rem; opacity: 0.5; }
-        .cal-events-list { margin-top: 1.5rem; font-size: 0.75rem; }
-        .cal-event-chip { background: #EAEAE5; padding: 2px 4px; margin-bottom: 2px; border-radius: 2px; display: flex; justify-content: space-between; }
+        .cal-wrapper { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--ink); height: 600px; }
+        .cal-col { border-right: 1px solid var(--ink); display: flex; flex-direction: column; }
+        .cal-col:last-child { border-right: none; }
+        .cal-head { padding: 0.5rem; text-align: center; background: var(--ink); color: var(--paper); font-family: var(--font-mono); font-size: 0.8rem; }
+        .cal-body { flex: 1; padding: 0.5rem; overflow-y: auto; }
+        .cal-event { background: #e0e0e0; padding: 0.5rem; margin-bottom: 0.5rem; font-size: 0.85rem; position: relative; border-left: 3px solid var(--ink); }
+        .event-time { font-family: var(--font-mono); font-size: 0.7rem; opacity: 0.7; }
+        .event-del { position: absolute; top: 2px; right: 5px; cursor: pointer; color: red; font-weight: bold; }
+        .share-input { border-style: dashed; }
         
         /* Upload UI */
         .file-upload-wrapper { margin-bottom: 1.5rem; border: 1px solid var(--ink); padding: 1rem; background: rgba(26,26,26,0.03); }
         input[type="file"] { border: none; padding: 0; margin: 0; margin-bottom: 0.5rem; }
         .separator { text-align: center; font-family: var(--font-mono); font-size: 0.8rem; margin: 1rem 0; opacity: 0.5; }
-        .btn-sm { font-size: 0.8rem; padding: 0.3rem 0.8rem; }
-        .btn-outline { background: transparent; border: 1px solid var(--ink); color: var(--ink); }
     </style>
 </head>
 <body>
@@ -569,10 +472,7 @@
                     <textarea name="content" style="min-height: 300px; font-family: 'JetBrains Mono', monospace;" required placeholder="# Title&#10;&#10;Write markdown content here..." oninput="updateReadTime(this)"></textarea>
                     
                     <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <div>
-                            <button type="button" onclick="saveAndPreview()" class="btn-outline" style="margin-right:10px;">SAVE & PREVIEW</button>
-                            <button type="submit">SAVE POST</button>
-                        </div>
+                        <button type="submit">SAVE POST</button>
                         <span id="feedback" class="mono" style="opacity:0; transition:opacity 0.3s;">Saved.</span>
                     </div>
                 </form>
@@ -592,21 +492,11 @@
 
             <!-- TAB 3: PLAN -->
             <div id="plan" class="tab-content" style="display:none;">
-                <h2 class="mono">FULL CALENDAR</h2>
+                <h2 class="mono">WEEKLY AGENDA</h2>
                 <form onsubmit="addEvent(event)" style="background:#fff; padding:1.5rem; border:1px solid var(--ink); margin-bottom:2rem;">
-                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
-                        <div><label>EVENT</label><input type="text" name="title" required></div>
-                        <div><label>DATE</label><input type="date" name="date" required></div>
-                        <div><label>TIME</label><input type="text" name="time" placeholder="10:00 AM"></div>
-                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem;"><div><label>EVENT</label><input type="text" name="title" required></div><div><label>DAY</label><select name="day"><option value="MON">MONDAY</option><option value="TUE">TUESDAY</option><option value="WED">WEDNESDAY</option><option value="THU">THURSDAY</option><option value="FRI">FRIDAY</option><option value="SAT">SATURDAY</option><option value="SUN">SUNDAY</option></select></div><div><label>TIME</label><input type="text" name="time" placeholder="10:00 AM"></div></div>
                     <label>SHARE WITH (Emails comma separated)</label><input type="text" name="share" class="share-input" placeholder="partner@email.com"><button type="submit">ADD TO CALENDAR</button>
                 </form>
-                
-                <div class="cal-nav">
-                    <button onclick="changeMonth(-1)" class="btn-sm">&lt;</button>
-                    <div class="mono" id="calMonthLabel" style="font-size:1.2rem;"></div>
-                    <button onclick="changeMonth(1)" class="btn-sm">&gt;</button>
-                </div>
                 <div id="calGrid"></div>
             </div>
         </main>
