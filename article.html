@@ -11,7 +11,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- CONFIGURATION ---
+        // ⚠️ CONFIGURATION ⚠️
         const firebaseConfig = {
             apiKey: "AIzaSyBNyFkW_G7FpmjRgGtdAzcFvmF5gZLaDgM",
             authDomain: "digital-garden-f4ac9.firebaseapp.com",
@@ -42,7 +42,6 @@
                     document.getElementById('art-tag').innerText = data.tag || '#NOTE';
                     document.getElementById('art-time').innerText = data.readTime || '3 MIN READ';
                     
-                    // Attachment Handling
                     const fileUrl = data.attachmentUrl || data.imageUrl;
                     const fileType = data.attachmentType || ""; 
                     const fileName = data.attachmentName || "Attached File";
@@ -50,11 +49,9 @@
                     attachContainer.innerHTML = "";
 
                     if (fileUrl) {
-                        // Image?
                         if (fileType.startsWith('image/') || fileUrl.match(/\.(jpeg|jpg|gif|png)$/i)) {
                              attachContainer.innerHTML = `<img src="${fileUrl}" alt="${data.title}" style="width:100%; height:auto; border:1px solid var(--ink); margin-bottom:2rem; display:block;">`;
                         } else {
-                            // File?
                             const btnHtml = fileUrl.startsWith('data:') 
                                 ? `<a href="${fileUrl}" download="${fileName}" class="file-btn">DOWNLOAD FILE ↓</a>`
                                 : `<a href="${fileUrl}" target="_blank" class="file-btn">OPEN LINK ↗</a>`;
@@ -71,7 +68,7 @@
                     document.getElementById('art-title').innerText = data.title;
                     document.getElementById('art-intro').innerText = data.intro || '';
                     
-                    // MARKDOWN PARSING HERE
+                    // Render Markdown
                     document.getElementById('art-content').innerHTML = marked.parse(data.content);
                 } else {
                     window.location.href = '404.html';

@@ -1,8 +1,12 @@
-The Digital Garden
+Digital Garden \& Productivity OS
 
 
 
-A minimalist, editorial-style personal website template designed for curating thoughts, code, and resources. Built with "Swiss Style" design principles and a Headless Firebase CMS.
+A "Headless" CMS and Personal Operating System built with Vanilla JS, Firebase, and Cloudflare R2.
+
+
+
+It combines a public-facing "Digital Garden" (blog/portfolio) with a private, secured productivity dashboard.
 
 
 
@@ -10,65 +14,167 @@ Live Preview: \[Link to your site]
 
 
 
-🏗 Architecture
+🌟 Features
 
 
 
-The site is a "Dynamic Static" hybrid. Vercel/Netlify hosts the shell, and JavaScript fetches content from Firebase.
+🏡 Public Garden (Frontend)
 
 
 
-index.html - The Homepage. Fetches latest seeds (articles) from Firestore.
+Masthead Layout: Merged hero and featured article for high information density.
 
 
 
-article.html - The Reading Template. Renders specific article content via URL ID.
+Dynamic Sections: \* Featured Essay: Highlight your best work with a visual cover.
 
 
 
-admin.html - The CMS. A private dashboard to Write, Edit, and Delete entries.
+The Stream: Chronological feed of public notes.
 
 
 
-about.html - The Author Profile.
+Pillars: Curated collections of content.
 
 
 
-404.html - Error page.
+Markdown Rendering: Full markdown support for articles.
 
 
 
-🚀 Setup Instructions
+Smart Attachments: Displays images inline or provides download cards for files.
 
 
 
-1\. Backend Setup (Firebase)
-
-This site requires a Firebase project to store articles.
-
-👉 Read FIREBASE\_SETUP.md for step-by-step configuration.
+🔐 Gardener's OS (Admin)
 
 
 
-2\. Configuration
-
-Once you have your Firebase keys, update the firebaseConfig object in index.html, article.html, and admin.html.
+Content Management:
 
 
 
-🎨 Design System
+Markdown Editor: Distraction-free writing environment.
 
 
 
-Typeface: Playfair Display (Headers), Inter (Body), JetBrains Mono (Data).
+Visibility Control: Set posts to Public, Draft, or Private.
 
 
 
-Colors: Ink (#1A1A1A) on Paper (#F4F4F0).
+Smart Uploads: Automatically saves small files (<500KB) to the database and uploads large files to Cloudflare R2 (via Worker).
 
 
 
-Texture: CSS-based noise overlay.
+Preview Mode: See how your article looks before publishing.
+
+
+
+Productivity Tools:
+
+
+
+Shared Tasks: A Todo list that can be shared with specific email addresses.
+
+
+
+Full Calendar: Monthly view agenda with event tracking.
+
+
+
+🏗 Tech Stack
+
+
+
+Frontend: HTML5, CSS3 (Swiss Style), Vanilla JavaScript (ES6 Modules).
+
+
+
+Backend: Firebase (Firestore Database, Authentication).
+
+
+
+Storage: Hybrid (Firestore for small blobs, Cloudflare R2 for large assets).
+
+
+
+Hosting: Agnostic (Vercel, Netlify, GitHub Pages).
+
+
+
+🚀 Quick Start
+
+
+
+Clone the Repo
+
+
+
+git clone \[https://github.com/yourusername/digital-garden.git](https://github.com/yourusername/digital-garden.git)
+
+cd digital-garden
+
+
+
+
+
+Configure Backend
+
+
+
+See FIREBASE\_SETUP.md for database rules.
+
+
+
+See CLOUDFLARE\_SETUP.md for large file storage.
+
+
+
+Update Config
+
+
+
+Open admin.html, index.html, and article.html.
+
+
+
+Replace the const firebaseConfig = { ... } block with your own keys.
+
+
+
+Deploy
+
+
+
+Push to GitHub and connect to Vercel/Netlify.
+
+
+
+Note: No build step required. It's just static files.
+
+
+
+🛠 Customization
+
+
+
+Design System:
+
+Colors and fonts are controlled by CSS variables in the <style> block of each file:
+
+
+
+:root { 
+
+&nbsp;   --paper: #F4F4F0; 
+
+&nbsp;   --ink: #1A1A1A; 
+
+&nbsp;   --font-serif: 'Playfair Display', serif; 
+
+}
+
+
 
 
 
@@ -76,5 +182,5 @@ Texture: CSS-based noise overlay.
 
 
 
-Designed by \[Your Name]. Free to use and adapt.
+MIT.
 

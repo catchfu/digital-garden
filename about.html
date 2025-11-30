@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About The Gardener | Digital Garden</title>
     
+    <!-- Typography Imports -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&display=swap" rel="stylesheet">
@@ -80,10 +81,12 @@
             overflow: hidden;
         }
 
-        .profile-image-placeholder::after {
-            content: "PROFILE IMAGE";
-            font-family: var(--font-mono);
-            opacity: 0.3;
+        /* Image styling */
+        .profile-image-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         /* --- RIGHT COLUMN (Narrative) --- */
@@ -160,27 +163,31 @@
         </nav>
 
         <main class="about-grid">
+            <!-- Left Column -->
             <aside class="profile-frame">
                 <div class="profile-image-placeholder">
-                    </div>
+                    <img src="Man1-mage.png" alt="Gardener Profile">
+                </div>
                 
                 <div class="mono" style="margin-bottom: 1rem;">CONNECT</div>
-                <div style="font-family: var(--font-mono); font-size: 0.9rem;">
-                    <a href="#" style="display:block; margin-bottom: 0.5rem;">TWITTER ↗</a>
-                    <a href="#" style="display:block; margin-bottom: 0.5rem;">GITHUB ↗</a>
-                    <a href="#" style="display:block; margin-bottom: 0.5rem;">EMAIL ↗</a>
+                <div style="font-family: var(--font-mono); font-size: 0.85rem;">
+                    <a href="https://twitter.com/pwcexchange" target="_blank" style="display:block; margin-bottom: 0.5rem; text-decoration: underline;">X (TWITTER) ↗</a>
+                    <a href="https://github.com/catchfu/digital-garden" target="_blank" style="display:block; margin-bottom: 0.5rem; text-decoration: underline;">GITHUB ↗</a>
+                    <a href="mailto:catchf.u@gmail.com" style="display:block; margin-bottom: 0.5rem; text-decoration: underline;">EMAIL ↗</a>
                 </div>
             </aside>
 
+            <!-- Right Column -->
             <article>
                 <h1 class="bio-headline">Exploring the intersection of design, code, and slow living.</h1>
                 
                 <div class="bio-text">
-                    <p>I am a multidisciplinary designer and developer based in Tokyo. For the last decade, I have been obsessed with the web as a medium for thought—not just a platform for applications.</p>
+                    <p>I am a multidisciplinary designer and developer. For the last decade, I have been obsessed with the web as a medium for thought—not just a platform for applications.</p>
                     <p>This site is my <strong>Digital Garden</strong>. Unlike a blog, which is a chronological stream, a garden is a collection of evolving notes. Some are seedlings (just started), some are evergreen (mature thoughts).</p>
                     <p>I believe in software that respects the user's attention, interfaces that feel like physical objects, and code that lasts.</p>
                 </div>
 
+                <!-- The "Now" Section -->
                 <div class="now-section">
                     <div class="mono" style="margin-bottom: 1rem; color: rgba(255,255,255,0.5);">WHAT I'M DOING NOW</div>
                     <ul class="now-list">
@@ -199,6 +206,7 @@
                     </ul>
                 </div>
 
+                <!-- Timeline -->
                 <div class="timeline-section">
                     <div class="mono" style="margin-bottom: var(--spacing-md);">TIMELINE</div>
                     
@@ -233,139 +241,5 @@
             © 2025 DIGITAL GARDEN
         </footer>
     </div>
-	<!-- ============================================ -->
-<!-- PASTE THIS BEFORE THE CLOSING </body> TAG    -->
-<!-- ============================================ -->
-
-<style>
-    /* MODAL STYLES */
-    .modal-backdrop {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(244, 244, 240, 0.8);
-        backdrop-filter: blur(8px);
-        z-index: 10000;
-        display: flex; justify-content: center; align-items: center;
-        opacity: 0; pointer-events: none;
-        transition: opacity 0.3s ease;
-    }
-
-    .modal-backdrop.active {
-        opacity: 1; pointer-events: all;
-    }
-
-    .modal-card {
-        background: var(--paper);
-        border: 1px solid var(--ink);
-        padding: 3rem;
-        width: 100%; max-width: 500px;
-        position: relative;
-        transform: translateY(20px);
-        transition: transform 0.3s ease;
-        box-shadow: 20px 20px 0px rgba(26, 26, 26, 0.1);
-    }
-
-    .modal-backdrop.active .modal-card {
-        transform: translateY(0);
-    }
-
-    .modal-close {
-        position: absolute; top: 1rem; right: 1.5rem;
-        font-family: var(--font-mono); font-size: 1.5rem;
-        cursor: pointer; background: none; border: none; color: var(--ink);
-    }
-
-    .form-group { margin-bottom: 2rem; }
-    
-    .form-label {
-        display: block; font-family: var(--font-mono); font-size: 0.75rem;
-        margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;
-    }
-
-    .form-input, .form-textarea {
-        width: 100%; background: transparent;
-        border: none; border-bottom: 1px solid var(--ink);
-        padding: 0.5rem 0; font-family: var(--font-serif); font-size: 1.2rem;
-        color: var(--ink); outline: none; border-radius: 0;
-    }
-
-    .form-textarea { resize: none; min-height: 100px; }
-
-    .modal-submit {
-        width: 100%; padding: 1rem;
-        background: var(--ink); color: var(--paper);
-        border: none; font-family: var(--font-mono); text-transform: uppercase;
-        cursor: pointer; transition: opacity 0.3s;
-    }
-
-    .modal-submit:hover { opacity: 0.9; }
-</style>
-
-<!-- MODAL HTML -->
-<div class="modal-backdrop" id="contactModal">
-    <div class="modal-card">
-        <button class="modal-close" onclick="toggleModal()">×</button>
-        
-        <h2 style="font-family: var(--font-serif); font-size: 2rem; margin-bottom: 0.5rem;">Correspondence</h2>
-        <p style="font-family: var(--font-mono); font-size: 0.8rem; margin-bottom: 2rem; opacity: 0.6;">DROP A NOTE IN THE GARDEN</p>
-        
-        <form onsubmit="event.preventDefault(); handleFormSubmit(this);">
-            <div class="form-group">
-                <label class="form-label">Name</label>
-                <input type="text" class="form-input" required placeholder="Guest">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Message</label>
-                <textarea class="form-textarea" required placeholder="Your thoughts..."></textarea>
-            </div>
-            <button type="submit" class="modal-submit">Send Message</button>
-        </form>
-    </div>
-</div>
-
-<!-- MODAL SCRIPT -->
-<script>
-    function toggleModal() {
-        const modal = document.getElementById('contactModal');
-        modal.classList.toggle('active');
-    }
-
-    function handleFormSubmit(form) {
-        const btn = form.querySelector('button');
-        const originalText = btn.innerText;
-        btn.innerText = "SENT SUCCESSFULLY";
-        btn.style.background = "#4A4A4A";
-        
-        setTimeout(() => {
-            toggleModal();
-            setTimeout(() => {
-                btn.innerText = originalText;
-                btn.style.background = "var(--ink)";
-                form.reset();
-            }, 500);
-        }, 1500);
-    }
-
-    // Connect to existing footer input if it exists
-    document.addEventListener('DOMContentLoaded', () => {
-        const footerArrow = document.querySelector('.submit-arrow');
-        const footerInput = document.querySelector('.email-input');
-        
-        if (footerArrow) {
-            // Remove old listener if possible (optional)
-            // Add new trigger
-            footerArrow.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation(); // Stop the old script
-                toggleModal();
-            };
-        }
-        
-        if (footerInput) {
-            footerInput.onclick = () => toggleModal();
-            footerInput.placeholder = "Click to open contact form...";
-            footerInput.readOnly = true;
-        }
-    });
-</script>
 </body>
 </html>

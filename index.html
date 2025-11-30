@@ -27,7 +27,7 @@
         const appId = 'default-app-id';
         const postsCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
 
-        // AUTH: Only run if we have a token (Admin). Otherwise, read as Public.
+        // AUTH
         async function initAuth() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {

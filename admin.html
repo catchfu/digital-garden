@@ -11,7 +11,7 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, getDoc, doc, deleteDoc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ⚠️ CONFIGURATION ⚠️
+        // --- CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyBNyFkW_G7FpmjRgGtdAzcFvmF5gZLaDgM",
             authDomain: "digital-garden-f4ac9.firebaseapp.com",
@@ -21,10 +21,9 @@
             appId: "1:423501957168:web:d27abd7992a8a5d93085f5"
         };
 
-        // ☁️ CLOUDFLARE R2 SETUP (Optional - leave empty if not using)
-        const cloudflareWorkerUrl = "https://garden-uploader.catchfu.workers.dev"; // Your Worker URL
-        const cloudflareSecret = "MySecretPassword987"; // Must match env.UPLOAD_SECRET in Worker
-
+        // ☁️ CLOUDFLARE R2 SETUP
+        const cloudflareWorkerUrl = "https://garden-uploader.catchfu.workers.dev"; 
+        const cloudflareSecret = "MySecretPassword987"; 
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -62,7 +61,7 @@
             
             if (tabName === 'journal') loadPosts();
             if (tabName === 'tasks') loadTodos();
-            if (tabName === 'plan') loadCalendar(); // Loads current month
+            if (tabName === 'plan') loadCalendar();
         };
 
         // --- AUTHENTICATION ---
@@ -155,6 +154,7 @@
             throw new Error("File too large for DB (>500KB) and Cloudflare not configured.");
         }
 
+        // NEW: Remove Attachment Logic
         window.removeAttachment = async () => {
             if(!currentAttachment.url) return;
             if(confirm("Remove attachment? If hosted on R2, this will delete it.")) {
@@ -176,7 +176,7 @@
             }
         }
 
-        // UPDATED: Save Logic with Preview Support
+        // NEW: Save & Preview Logic
         window.savePost = async (e, isPreview = false) => {
             if(e) e.preventDefault();
             const f = document.getElementById('postForm');
@@ -226,13 +226,10 @@
                 }
                 
                 if (isPreview) {
-                    // Open article in new tab
                     window.open(`article.html?id=${savedId}`, '_blank');
-                    // We don't reset form on preview so you can keep editing
                     showFeedback("Preview Opened", true);
-                    // Reload list to ensure ID exists if it was new
                     if(!isEditingPostId) { 
-                        isEditingPostId = savedId; // Switch to edit mode
+                        isEditingPostId = savedId;
                         loadPosts();
                         document.getElementById('formTitle').innerText = "EDITING (PREVIEW MODE)";
                     }
@@ -248,7 +245,6 @@
             }
         };
 
-        // Helper for the Preview button
         window.saveAndPreview = () => {
             savePost(null, true);
         };
@@ -272,7 +268,7 @@
                 currentAttachment = { url: d.attachmentUrl, type: d.attachmentType, name: d.attachmentName };
                 document.getElementById('formTitle').innerText = "EDITING";
                 
-                // UPDATED: Attachment Status with Link
+                // UPDATED: Attachment Status with Links
                 const statusDiv = document.getElementById('fileStatus');
                 if(currentAttachment.url) {
                     statusDiv.innerHTML = `
@@ -384,35 +380,28 @@
             grid.innerHTML = 'Loading...';
 
             try {
-                // Fetch ALL events (Inefficient but simple for now)
-                // Better: query(userEventsCol, where("date", ">=", startOfMonth), where("date", "<=", endOfMonth))
                 const q = query(userEventsCol);
                 const snap = await getDocs(q);
                 const events = [];
                 snap.forEach(d => events.push({id: d.id, ...d.data()}));
 
-                // Calculate Calendar Grid
                 const firstDay = new Date(year, month, 1);
                 const lastDay = new Date(year, month + 1, 0);
                 const daysInMonth = lastDay.getDate();
-                const startDayIndex = firstDay.getDay(); // 0 = Sunday
+                const startDayIndex = firstDay.getDay(); 
 
                 let html = `<div class="cal-month-grid">`;
                 
-                // Headers
                 ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].forEach(d => {
                     html += `<div class="cal-header-cell mono">${d}</div>`;
                 });
 
-                // Empty cells before first day
                 for(let i=0; i<startDayIndex; i++) {
                     html += `<div class="cal-cell empty"></div>`;
                 }
 
-                // Days
                 for(let d=1; d<=daysInMonth; d++) {
                     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                    // Filter events for this specific date
                     const dayEvents = events.filter(ev => ev.eventDate === dateStr);
                     
                     html += `<div class="cal-cell">
@@ -446,14 +435,13 @@
             try {
                 await addDoc(userEventsCol, {
                     title: f.title.value,
-                    eventDate: f.date.value, // YYYY-MM-DD
+                    eventDate: f.date.value,
                     time: f.time.value,
                     ownerId: currentUser.uid,
                     sharedWith: emails,
                     createdAt: new Date().toISOString() 
                 });
                 f.reset();
-                // Reset date to current view to avoid confusion
                 loadCalendar();
             } catch (e) { alert("Error adding event: " + e.message); }
         };
